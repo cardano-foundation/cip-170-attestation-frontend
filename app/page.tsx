@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserWallet } from '@meshsdk/core';
 import { useWallet } from '@meshsdk/react';
-import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
 import { SignifyClient, Serder, Authenticater } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
@@ -74,23 +73,22 @@ export default function Home() {
         throw new Error('Please provide transaction hash');
       }
 
-      const blockfrost = new BlockFrostAPI({
-        projectId: blockfrostApiKey,
+      // Call API route instead of using Blockfrost directly
+      const response = await fetch('/api/blockfrost', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ txHash, apiKey: blockfrostApiKey }),
       });
 
-      const txMetadata = await blockfrost.txsMetadata(txHash);
-      
-      if (!txMetadata || txMetadata.length === 0) {
-        throw new Error('No metadata found for this transaction');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch metadata');
       }
 
-      // Convert metadata array to object
-      const metadataObj: TransactionMetadata = {};
-      txMetadata.forEach((item: any) => {
-        metadataObj[item.label] = item.json_metadata;
-      });
-
-      setMetadata(metadataObj);
+      setMetadata(data.metadata);
       setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
       setSuccess('Transaction metadata fetched successfully!');
     } catch (err: any) {
@@ -132,7 +130,7 @@ export default function Home() {
       }
 
       // Initialize Signify client
-      const client = new SignifyClient(signifyUrl, name, () => '');
+      const client = new SignifyClient(signifyUrl, name, undefined);
       
       // Connect to Signify
       await client.connect();
@@ -157,7 +155,9 @@ export default function Home() {
       
       // Get the sequence number from the interaction
       const serder = interactionResult.serder;
-      const seqNo = parseInt(serder.ked.s, 16);
+      // Serder is the event, we need to parse it to get the sequence number
+      const eventData: any = serder;
+      const seqNo = parseInt(eventData.s || eventData.sn || '0', 16);
       
       setSequenceNumber(seqNo);
       setCurrentStep(WorkflowStep.BUILD_TRANSACTION);
