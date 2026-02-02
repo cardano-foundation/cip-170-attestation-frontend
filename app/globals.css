@@ -149,6 +149,18 @@ p {
   margin-bottom: 2rem;
 }
 
+.network-info {
+  text-align: center;
+  color: white;
+  font-size: 0.875rem;
+  margin-top: -1rem;
+  margin-bottom: 2rem;
+}
+
+.network-info strong {
+  text-transform: uppercase;
+}
+
 .wallet-info {
   background: white;
   border-radius: 8px;

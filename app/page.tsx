@@ -250,8 +250,8 @@ export default function Home() {
     <div className="container">
       <h1>KERI Cardano Transaction Attestation</h1>
       <p>Attest Cardano transactions with KERI using Signify</p>
-      <p style={{ fontSize: '0.875rem', marginTop: '-1rem' }}>
-        Network: <strong style={{ textTransform: 'uppercase' }}>{network}</strong>
+      <p className="network-info">
+        Network: <strong>{network}</strong>
       </p>
 
       {/* Status Messages */}

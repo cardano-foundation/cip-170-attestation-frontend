@@ -52,12 +52,15 @@ export function buildCIP170Metadata(
   // Add all original metadata with their original labels
   // This preserves the exact structure of the original transaction
   if (originalMetadata && typeof originalMetadata === 'object') {
-    Object.keys(originalMetadata).forEach(label => {
-      // Don't overwrite label 170 if it exists in original metadata
-      if (label !== "170") {
-        metadata[label] = originalMetadata[label];
-      }
-    });
+    // Use Object.assign to safely copy properties, filtering out label 170 and prototype pollution
+    const filteredMetadata = Object.keys(originalMetadata)
+      .filter(label => label !== "170" && label !== "__proto__" && label !== "constructor" && label !== "prototype")
+      .reduce((acc, label) => {
+        acc[label] = originalMetadata[label];
+        return acc;
+      }, {} as any);
+    
+    Object.assign(metadata, filteredMetadata);
   }
   
   return metadata;
