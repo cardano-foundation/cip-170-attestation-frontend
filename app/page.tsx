@@ -6,7 +6,7 @@ import { useWallet } from '@meshsdk/react';
 import { SignifyClient, Serder, Authenticater } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
-import { getSignifyUrl, getCardanoNetwork, getCardanoExplorerUrl } from '@/lib/config';
+import { getSignifyUrl, getCardanoNetwork, getCardanoExplorerUrl, getBlockfrostUrl } from '@/lib/config';
 
 // Constants
 const MIN_ADA_LOVELACE = '1000000'; // 1 ADA minimum for transaction output
@@ -16,6 +16,7 @@ export default function Home() {
   const defaultSignifyUrl = getSignifyUrl();
   const network = getCardanoNetwork();
   const explorerBaseUrl = getCardanoExplorerUrl();
+  const blockfrostUrl = getBlockfrostUrl();
 
   // Wallet state
   const [walletConnected, setWalletConnected] = useState(false);
@@ -82,22 +83,32 @@ export default function Home() {
         throw new Error('Please provide transaction hash');
       }
 
-      // Call API route instead of using Blockfrost directly
-      const response = await fetch('/api/blockfrost', {
-        method: 'POST',
+      // Call Blockfrost API directly using their OpenAPI endpoint
+      const response = await fetch(`${blockfrostUrl}/txs/${txHash}/metadata`, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          'project_id': blockfrostApiKey,
         },
-        body: JSON.stringify({ txHash, apiKey: blockfrostApiKey }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch metadata');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Blockfrost API error: ${response.status}`);
       }
 
-      setMetadata(data.metadata);
+      const txMetadata = await response.json();
+
+      if (!txMetadata || txMetadata.length === 0) {
+        throw new Error('No metadata found for this transaction');
+      }
+
+      // Convert metadata array to object
+      const metadataObj: TransactionMetadata = {};
+      txMetadata.forEach((item: any) => {
+        metadataObj[item.label] = item.json_metadata;
+      });
+
+      setMetadata(metadataObj);
       setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
       setSuccess('Transaction metadata fetched successfully!');
     } catch (err: any) {

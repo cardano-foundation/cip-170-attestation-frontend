@@ -14,13 +14,14 @@ A Next.js application for attesting Cardano transactions with KERI (Key Event Re
 
 - Connect with Cardano browser wallet (via Mesh.js)
 - Configurable network support (mainnet, preprod, preview) via environment variables
-- Fetch transaction metadata from Blockfrost (network-specific endpoints)
+- Fetch transaction metadata directly from Blockfrost OpenAPI endpoints (no backend required)
 - Hash metadata using Blake2b
 - Create KERI interaction events with Signify
 - Build CIP-0170 compliant attestation transactions
 - Preserve original metadata labels in published transactions
 - Publish transactions to the Cardano blockchain
 - View transaction on network-appropriate Cardano Explorer
+- Fully client-side application - no backend API routes needed
 
 ## Configuration
 
