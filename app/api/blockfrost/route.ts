@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     // Get the configured network and corresponding Blockfrost URL
     const network = getCardanoNetwork();
-    const baseUrl = getBlockfrostUrl(network);
+    const baseUrl = getBlockfrostUrl();
 
     const blockfrost = new BlockFrostAPI({
       projectId: apiKey,

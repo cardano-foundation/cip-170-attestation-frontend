@@ -15,7 +15,7 @@ export default function Home() {
   // Configuration from environment
   const defaultSignifyUrl = getSignifyUrl();
   const network = getCardanoNetwork();
-  const explorerBaseUrl = getCardanoExplorerUrl(network);
+  const explorerBaseUrl = getCardanoExplorerUrl();
 
   // Wallet state
   const [walletConnected, setWalletConnected] = useState(false);

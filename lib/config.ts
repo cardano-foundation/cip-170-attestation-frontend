@@ -4,10 +4,10 @@
  * Get the Cardano network from environment variables
  * Defaults to 'mainnet' if not set
  */
-export function getCardanoNetwork(): 'mainnet' | 'preprod' | 'preview' {
+export function getCardanoNetwork(): 'mainnet' | 'preprod' | 'preview' | 'devnet' {
   const network = process.env.NEXT_PUBLIC_CARDANO_NETWORK || 'mainnet';
   
-  if (network === 'mainnet' || network === 'preprod' || network === 'preview') {
+  if (network === 'mainnet' || network === 'preprod' || network === 'preview' || network === 'devnet') {
     return network;
   }
   
@@ -18,14 +18,9 @@ export function getCardanoNetwork(): 'mainnet' | 'preprod' | 'preview' {
 /**
  * Get the Blockfrost API base URL based on the network
  */
-export function getBlockfrostUrl(network: 'mainnet' | 'preprod' | 'preview'): string {
-  const urls = {
-    mainnet: 'https://cardano-mainnet.blockfrost.io/api/v0',
-    preprod: 'https://cardano-preprod.blockfrost.io/api/v0',
-    preview: 'https://cardano-preview.blockfrost.io/api/v0',
-  };
-  
-  return urls[network];
+export function getBlockfrostUrl(): string {
+
+  return process.env.NEXT_PUBLIC_CARDANO_BLOCKFROST_API_URL || 'https://cardano-mainnet.blockfrost.io/api/v0';
 }
 
 /**
@@ -39,12 +34,7 @@ export function getSignifyUrl(): string {
 /**
  * Get the Cardano Explorer URL based on the network
  */
-export function getCardanoExplorerUrl(network: 'mainnet' | 'preprod' | 'preview'): string {
-  const urls = {
-    mainnet: 'https://explorer.cardano.org',
-    preprod: 'https://preprod.cardanoscan.io',
-    preview: 'https://preview.cardanoscan.io',
-  };
+export function getCardanoExplorerUrl(): string {
   
-  return urls[network];
+  return process.env.NEXT_PUBLIC_CARDANO_EXPLORER_PREFIX || 'http://localhost:5173';
 }
