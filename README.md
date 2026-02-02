@@ -2,6 +2,14 @@
 
 A Next.js application for attesting Cardano transactions with KERI (Key Event Receipt Infrastructure) using Signify.
 
+## Screenshots
+
+### Initial Application Screen
+![Application Homepage](https://github.com/user-attachments/assets/72ad7b24-6850-4d6e-9a4d-a7ec02c01d76)
+
+### Wallet Connection with Error Handling
+![Wallet Error Handling](https://github.com/user-attachments/assets/dc563ac0-2971-47e5-b802-5e9703913cd8)
+
 ## Features
 
 - Connect with Cardano browser wallet (via Mesh.js)
