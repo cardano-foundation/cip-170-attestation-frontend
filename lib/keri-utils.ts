@@ -28,15 +28,16 @@ export function decimalToHex(decimal: number): string {
 
 /**
  * Build CIP-0170 compliant metadata for attestation
+ * Preserves original metadata labels and adds label 170 for attestation
  */
 export function buildCIP170Metadata(
   identifier: string,
   digest: string,
   sequenceNumber: number,
-  originalMetadata: any,
-  metadataLabel: number = 1447
+  originalMetadata: any
 ): any {
-  const metadata = {
+  // Start with the CIP-170 attestation at label 170
+  const metadata: any = {
     "170": {
       "t": "ATTEST",
       "i": identifier,
@@ -45,9 +46,19 @@ export function buildCIP170Metadata(
       "v": {
         "v": "1.0"
       }
-    },
-    [metadataLabel.toString()]: originalMetadata
+    }
   };
+  
+  // Add all original metadata with their original labels
+  // This preserves the exact structure of the original transaction
+  if (originalMetadata && typeof originalMetadata === 'object') {
+    Object.keys(originalMetadata).forEach(label => {
+      // Don't overwrite label 170 if it exists in original metadata
+      if (label !== "170") {
+        metadata[label] = originalMetadata[label];
+      }
+    });
+  }
   
   return metadata;
 }

@@ -13,12 +13,28 @@ A Next.js application for attesting Cardano transactions with KERI (Key Event Re
 ## Features
 
 - Connect with Cardano browser wallet (via Mesh.js)
-- Fetch transaction metadata from Blockfrost
+- Configurable network support (mainnet, preprod, preview) via environment variables
+- Fetch transaction metadata from Blockfrost (network-specific endpoints)
 - Hash metadata using Blake2b
 - Create KERI interaction events with Signify
 - Build CIP-0170 compliant attestation transactions
+- Preserve original metadata labels in published transactions
 - Publish transactions to the Cardano blockchain
-- View transaction on Cardano Explorer
+- View transaction on network-appropriate Cardano Explorer
+
+## Configuration
+
+The application can be configured via environment variables. Create a `.env.local` file in the root directory:
+
+```bash
+# Network configuration (mainnet, preprod, or preview)
+NEXT_PUBLIC_CARDANO_NETWORK=mainnet
+
+# Signify service URL
+NEXT_PUBLIC_SIGNIFY_URL=http://localhost:3901
+```
+
+**Important:** The Blockfrost API key is entered via the frontend interface for security reasons and should NOT be stored in environment files.
 
 ## Prerequisites
 
@@ -40,12 +56,18 @@ cd keri-cardano-tx-attestation-frontend
 npm install
 ```
 
-3. Run the development server:
+3. Configure environment variables (optional):
+```bash
+cp .env.example .env.local
+# Edit .env.local to set your network and Signify URL
+```
+
+4. Run the development server:
 ```bash
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ## Usage
 
@@ -65,11 +87,36 @@ npm run dev
 This application builds transactions according to [CIP-0170](https://github.com/Kammerlo/CIPs/tree/feat/keri-cip/CIP-0170) for KERI-backed metadata attestations.
 
 The attestation metadata structure includes:
-- Label `170` with attestation information (type, identifier, digest, sequence number)
-- Original transaction metadata on the specified label
-- Version information for compatibility
+- Label `170` with attestation information (type, identifier, digest, sequence number, version)
+- **All original transaction metadata labels preserved with their exact data**
+- This allows verification that the attested data matches the original transaction metadata
 
-## Configuration
+Example metadata structure:
+```json
+{
+  "170": {
+    "t": "ATTEST",
+    "i": "EKtQ1lymrnrh3qv5S18PBzQ7ukHGFJ7EXkH7B22XEMIL",
+    "d": "ELC5L3iBVD77d_MYbYGGCUQgqQBju1o4x1Ud-z2sL-ux",
+    "s": "1a",
+    "v": { "v": "1.0" }
+  },
+  "721": { /* original NFT metadata */ },
+  "1234": { /* other original metadata */ }
+}
+```
+
+## Network Configuration
+
+The application supports multiple Cardano networks through environment configuration:
+
+- **mainnet**: Production Cardano network
+- **preprod**: Pre-production testnet
+- **preview**: Preview testnet
+
+The network setting determines:
+- Which Blockfrost API endpoint to use
+- Which Cardano Explorer to link to for published transactions
 
 ### Signify Service
 

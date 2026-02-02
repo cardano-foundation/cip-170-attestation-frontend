@@ -6,11 +6,17 @@ import { useWallet } from '@meshsdk/react';
 import { SignifyClient, Serder, Authenticater } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
+import { getSignifyUrl, getCardanoNetwork, getCardanoExplorerUrl } from '@/lib/config';
 
 // Constants
 const MIN_ADA_LOVELACE = '1000000'; // 1 ADA minimum for transaction output
 
 export default function Home() {
+  // Configuration from environment
+  const defaultSignifyUrl = getSignifyUrl();
+  const network = getCardanoNetwork();
+  const explorerBaseUrl = getCardanoExplorerUrl(network);
+
   // Wallet state
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletApi, setWalletApi] = useState<any>(null);
@@ -21,7 +27,7 @@ export default function Home() {
   const [identifierName, setIdentifierName] = useState('');
   const [name, setName] = useState('');
   const [blockfrostApiKey, setBlockfrostApiKey] = useState('');
-  const [signifyUrl, setSignifyUrl] = useState('http://localhost:3901');
+  const [signifyUrl, setSignifyUrl] = useState(defaultSignifyUrl);
 
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>(WorkflowStep.CONNECT_WALLET);
@@ -244,6 +250,9 @@ export default function Home() {
     <div className="container">
       <h1>KERI Cardano Transaction Attestation</h1>
       <p>Attest Cardano transactions with KERI using Signify</p>
+      <p style={{ fontSize: '0.875rem', marginTop: '-1rem' }}>
+        Network: <strong style={{ textTransform: 'uppercase' }}>{network}</strong>
+      </p>
 
       {/* Status Messages */}
       {error && <div className="error">{error}</div>}
@@ -335,12 +344,12 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="label">Signify URL (optional)</label>
+                <label className="label">Signify URL (configured: {defaultSignifyUrl})</label>
                 <input
                   type="text"
                   value={signifyUrl}
                   onChange={(e) => setSignifyUrl(e.target.value)}
-                  placeholder="http://localhost:3901"
+                  placeholder={defaultSignifyUrl}
                   className="input"
                 />
               </div>
@@ -442,7 +451,7 @@ export default function Home() {
                   className="input"
                 />
                 <a
-                  href={`https://explorer.cardano.org/transaction/${publishedTxHash}`}
+                  href={`${explorerBaseUrl}/transaction/${publishedTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="link"

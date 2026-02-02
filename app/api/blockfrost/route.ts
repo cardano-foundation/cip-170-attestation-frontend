@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlockFrostAPI } from '@blockfrost/blockfrost-js';
+import { getCardanoNetwork, getBlockfrostUrl } from '@/lib/config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,8 +13,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the configured network and corresponding Blockfrost URL
+    const network = getCardanoNetwork();
+    const baseUrl = getBlockfrostUrl(network);
+
     const blockfrost = new BlockFrostAPI({
       projectId: apiKey,
+      customBackend: baseUrl,
     });
 
     const txMetadata = await blockfrost.txsMetadata(txHash);

@@ -4,6 +4,25 @@
 
 This application enables users to create CIP-0170 compliant attestations for Cardano transactions using KERI (Key Event Receipt Infrastructure) identifiers through the Signify service.
 
+The application is configurable via environment variables to support different Cardano networks (mainnet, preprod, preview) and custom Signify service URLs.
+
+## Configuration
+
+Before using the application, configure your environment by creating a `.env.local` file:
+
+```bash
+# Network: mainnet, preprod, or preview
+NEXT_PUBLIC_CARDANO_NETWORK=mainnet
+
+# Signify service URL
+NEXT_PUBLIC_SIGNIFY_URL=http://localhost:3901
+```
+
+The application will automatically:
+- Use the appropriate Blockfrost API endpoint for the configured network
+- Link to the correct Cardano Explorer for the network
+- Pre-fill the Signify URL with the configured value
+
 ## Complete Workflow
 
 ### Step 1: Connect Cardano Wallet
@@ -64,7 +83,8 @@ The application constructs transaction metadata according to CIP-0170 specificat
       "v": "1.0"
     }
   },
-  "1447": "<original_metadata>"
+  "721": "<original_metadata_from_label_721>",
+  "1234": "<original_metadata_from_label_1234>"
 }
 ```
 
@@ -74,7 +94,9 @@ Where:
 - **d**: Digest/hash of the metadata in CESR format
 - **s**: Sequence number from the KERI interaction event (hex encoded)
 - **v**: Version information
-- **1447**: The original metadata under a separate label
+- **Original labels preserved**: All original metadata labels (e.g., 721, 1234) are preserved with their exact data, allowing anyone to verify the attested data matches the source
+
+**Important**: The original metadata is NOT modified or moved to a different label. It remains at its original labels (e.g., 721 for NFTs, 1234 for custom data) so that the attestation clearly shows what data was signed.
 
 ### Step 7: Preview Metadata
 
