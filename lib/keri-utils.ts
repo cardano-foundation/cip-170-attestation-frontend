@@ -9,9 +9,6 @@ export function hashMetadata(data: any): string {
   const jsonString = JSON.stringify(data);
   const hash = blake2b(jsonString, undefined, 32); // 32 bytes = 256 bits
   
-  // Convert to hex string
-  const hashHex = Buffer.from(hash).toString('hex');
-  
   // In CESR format for Blake2b-256, we use 'E' prefix for 256-bit digest
   // Convert hash to base64url and add CESR prefix
   const hashBase64 = Buffer.from(hash).toString('base64')

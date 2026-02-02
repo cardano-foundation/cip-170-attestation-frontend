@@ -77,7 +77,7 @@ You need a Blockfrost API key to fetch transaction metadata. Get one at [https:/
 
 - **Next.js 16** - React framework
 - **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
+- **Custom CSS** - Styling
 - **Mesh.js** - Cardano wallet integration
 - **Blockfrost.js** - Cardano blockchain data
 - **Signify-ts** - KERI identifier management

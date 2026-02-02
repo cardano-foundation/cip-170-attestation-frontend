@@ -7,6 +7,9 @@ import { SignifyClient, Serder, Authenticater } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
 
+// Constants
+const MIN_ADA_LOVELACE = '1000000'; // 1 ADA minimum for transaction output
+
 export default function Home() {
   // Wallet state
   const [walletConnected, setWalletConnected] = useState(false);
@@ -129,8 +132,8 @@ export default function Home() {
         throw new Error('Please provide identifier name and name');
       }
 
-      // Initialize Signify client
-      const client = new SignifyClient(signifyUrl, name, undefined);
+      // Initialize Signify client (third parameter is tier, using default)
+      const client = new SignifyClient(signifyUrl, name);
       
       // Connect to Signify
       await client.connect();
@@ -214,10 +217,10 @@ export default function Home() {
         throw new Error('No addresses found in wallet');
       }
 
-      // Build transaction with metadata
+      // Build transaction with metadata (sends to self with minimum ADA)
       const tx = await walletApi.buildTx()
         .changeAddress(changeAddress)
-        .txOut(usedAddresses[0], '1000000') // Send to self
+        .txOut(usedAddresses[0], MIN_ADA_LOVELACE)
         .metadataJson(cip170Metadata)
         .complete();
 
