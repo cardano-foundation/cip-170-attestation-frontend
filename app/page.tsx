@@ -79,6 +79,7 @@ export default function Home() {
   const [currentStep, setCurrentStep] = useState<WorkflowStep>(WorkflowStep.CONNECT_WALLET);
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
   const [metadata, setMetadata] = useState<TransactionMetadata | null>(null);
+  const [cborMetadata, setCborMetadata] = useState<TransactionMetadata | null>(null);
   const [metadataHash, setMetadataHash] = useState('');
   const [sequenceNumber, setSequenceNumber] = useState(0);
   const [identifier, setIdentifier] = useState('');
@@ -141,32 +142,58 @@ export default function Home() {
         throw new Error('Please provide transaction hash');
       }
 
-      // Call Blockfrost API directly using their OpenAPI endpoint
-      const response = await fetch(`${blockfrostUrl}/txs/${txHash}/metadata/cbor`, {
+      // Fetch JSON metadata for display and transaction building
+      const jsonResponse = await fetch(`${blockfrostUrl}/txs/${txHash}/metadata`, {
         method: 'GET',
         headers: {
           'project_id': blockfrostApiKey,
         },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Blockfrost API error: ${response.status}`);
+      if (!jsonResponse.ok) {
+        const errorData = await jsonResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Blockfrost API error: ${jsonResponse.status}`);
       }
 
-      const txMetadata = await response.json();
+      const jsonMetadata = await jsonResponse.json();
 
-      if (!txMetadata || txMetadata.length === 0) {
+      if (!jsonMetadata || jsonMetadata.length === 0) {
         throw new Error('No metadata found for this transaction');
       }
 
-      // Convert metadata array to object
-      const metadataObj: TransactionMetadata = {};
-      txMetadata.forEach((item: any) => {
-        metadataObj[item.label] = item.cbor_metadata;
+      // Fetch CBOR metadata for hash calculation
+      const cborResponse = await fetch(`${blockfrostUrl}/txs/${txHash}/metadata/cbor`, {
+        method: 'GET',
+        headers: {
+          'project_id': blockfrostApiKey,
+        },
       });
 
-      setMetadata(metadataObj);
+      if (!cborResponse.ok) {
+        const errorData = await cborResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `Blockfrost API error (CBOR): ${cborResponse.status}`);
+      }
+
+      const cborMetadataArray = await cborResponse.json();
+
+      if (!cborMetadataArray || cborMetadataArray.length === 0) {
+        throw new Error('No CBOR metadata found for this transaction');
+      }
+
+      // Convert JSON metadata array to object
+      const jsonMetadataObj: TransactionMetadata = {};
+      jsonMetadata.forEach((item: any) => {
+        jsonMetadataObj[item.label] = item.json_metadata;
+      });
+
+      // Convert CBOR metadata array to object
+      const cborMetadataObj: TransactionMetadata = {};
+      cborMetadataArray.forEach((item: any) => {
+        cborMetadataObj[item.label] = item.cbor_metadata;
+      });
+
+      setMetadata(jsonMetadataObj);
+      setCborMetadata(cborMetadataObj);
       markStepCompleted(WorkflowStep.INPUT_TX_HASH);
       setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
       setSuccess('Transaction metadata fetched successfully!');
@@ -191,8 +218,8 @@ export default function Home() {
       setLoading(true);
       setError('');
 
-      if (!metadata) {
-        throw new Error('No metadata to hash');
+      if (!cborMetadata) {
+        throw new Error('No CBOR metadata to hash');
       }
 
       // Initialize libsodium (required for Diger in hashMetadata)
@@ -201,7 +228,8 @@ export default function Home() {
         setIsSodiumReady(true);
       }
       
-      const hash = hashMetadata(metadata);
+      // Use CBOR metadata for hashing
+      const hash = hashMetadata(cborMetadata);
       setMetadataHash(hash);
       markStepCompleted(WorkflowStep.SHOW_METADATA);
       setCurrentStep(WorkflowStep.SHOW_METADATA);
@@ -570,6 +598,7 @@ export default function Home() {
                   setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET]));
                   setTxHash('');
                   setMetadata(null);
+                  setCborMetadata(null);
                   setMetadataHash('');
                   setSequenceNumber(0);
                   setIdentifier('');
