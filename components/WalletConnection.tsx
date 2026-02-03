@@ -40,7 +40,6 @@ export default function WalletConnection({ network, onConnect, onError }: Wallet
       
       // Get wallet network ID
       const networkId = await wallet.getNetworkId();
-      const expectedMagic = getNetworkMagic(network);
       
       // Validate network match (networkId 0 = testnet, 1 = mainnet)
       const isMainnet = network === 'mainnet';

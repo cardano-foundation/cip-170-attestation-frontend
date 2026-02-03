@@ -139,6 +139,7 @@ export function getCurrentNetworkConfig(): NetworkConfig {
 
 /**
  * Get network magic number for wallet validation
+ * Note: NetworkId from wallet API returns 0 for testnets and 1 for mainnet
  */
 export function getNetworkMagic(network: CardanoNetwork): number {
   switch (network) {

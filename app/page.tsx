@@ -177,11 +177,11 @@ export default function Home() {
   };
 
   // Handle identifier verification
-  const handleIdentifierVerified = (identifierPrefix: string) => {
+  const handleIdentifierVerified = async (identifierPrefix: string) => {
     setIdentifier(identifierPrefix);
     markStepCompleted(WorkflowStep.INPUT_IDENTIFIER);
     // Automatically hash metadata and proceed
-    hashAndShowMetadata();
+    await hashAndShowMetadata();
   };
 
   // Hash metadata and show to user
@@ -219,7 +219,7 @@ export default function Home() {
       setError('');
 
       if (!identifierName || !name || !identifier) {
-        throw new Error('Identifier not verified');
+        throw new Error('Identifier information incomplete or not verified');
       }
 
       // Initialize libsodium (required for signify-ts)
