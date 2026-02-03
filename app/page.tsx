@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserWallet } from '@meshsdk/core';
 import { useWallet } from '@meshsdk/react';
-import { SignifyClient, Serder, Authenticater } from 'signify-ts';
+import { SignifyClient, Serder, Authenticater, ready } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
 import { getSignifyUrl, getCardanoNetwork, getCardanoExplorerUrl, getBlockfrostUrl } from '@/lib/config';
@@ -148,6 +148,9 @@ export default function Home() {
       if (!identifierName || !name) {
         throw new Error('Please provide identifier name and name');
       }
+
+      // Initialize libsodium (required for signify-ts)
+      await ready();
 
       // Initialize Signify client (third parameter is tier, using default)
       const client = new SignifyClient(signifyUrl, name);
@@ -436,6 +439,11 @@ export default function Home() {
           {currentStep === WorkflowStep.PREVIEW_METADATA && (
             <div>
               <h2>Preview Transaction Metadata</h2>
+              <p style={{ fontSize: '0.875rem', marginBottom: '1rem', color: '#666' }}>
+                This transaction will include:
+                <br/>• Label 170: CIP-0170 attestation data
+                <br/>• Original metadata labels: {metadata && Object.keys(metadata).join(', ')}
+              </p>
               <div className="code-block">
                 <pre>{JSON.stringify(cip170Metadata, null, 2)}</pre>
               </div>

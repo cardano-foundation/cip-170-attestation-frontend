@@ -3,20 +3,21 @@
 import { blake2b } from 'blakejs';
 
 /**
- * Hash data using Blake2b and return CESR format
+ * Hash data using Blake2b-256 and return CESR qb64 format
+ * Uses 'F' prefix for Blake2b-256 digest (32 bytes)
  */
 export function hashMetadata(data: any): string {
   const jsonString = JSON.stringify(data);
   const hash = blake2b(jsonString, undefined, 32); // 32 bytes = 256 bits
   
-  // In CESR format for Blake2b-256, we use 'E' prefix for 256-bit digest
-  // Convert hash to base64url and add CESR prefix
+  // Convert to base64url (RFC 4648 §5)
   const hashBase64 = Buffer.from(hash).toString('base64')
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
   
-  return `E${hashBase64}`;
+  // CESR qb64 format for Blake2b-256: 'F' prefix + 43 chars base64url = 44 chars total
+  return `F${hashBase64}`;
 }
 
 /**
