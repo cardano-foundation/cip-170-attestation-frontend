@@ -4,16 +4,19 @@ A Next.js application for attesting Cardano transactions with KERI (Key Event Re
 
 ## Screenshots
 
-### Initial Application Screen
-![Application Homepage](https://github.com/user-attachments/assets/72ad7b24-6850-4d6e-9a4d-a7ec02c01d76)
+### Modern UI Design
+![Application Homepage](https://github.com/user-attachments/assets/b5b4023c-36f0-4f96-b5e0-3558fa908c51)
 
-### Wallet Connection with Error Handling
-![Wallet Error Handling](https://github.com/user-attachments/assets/dc563ac0-2971-47e5-b802-5e9703913cd8)
+### Network Configuration
+![Network Settings](https://github.com/user-attachments/assets/fe662582-470f-4eac-8da6-66071988c03d)
+
+### Network Switching
+![Preprod Network](https://github.com/user-attachments/assets/408b8edc-d2d1-49ef-9da0-3c03705dc790)
 
 ## Features
 
+### Core Functionality
 - Connect with Cardano browser wallet (via Mesh.js)
-- Configurable network support (mainnet, preprod, preview) via environment variables
 - Fetch transaction metadata directly from Blockfrost OpenAPI endpoints (no backend required)
 - Hash metadata using Blake2b
 - Create KERI interaction events with Signify
@@ -23,24 +26,64 @@ A Next.js application for attesting Cardano transactions with KERI (Key Event Re
 - View transaction on network-appropriate Cardano Explorer
 - Fully client-side application - no backend API routes needed
 
+### Network Configuration
+- 🌐 **Dynamic Network Selection**: Switch between mainnet, preprod, and preview networks
+- 🔧 **Custom Blockfrost URLs**: Configure custom Blockfrost API endpoints
+- 💾 **Persistent Settings**: Network configuration stored in browser localStorage
+- 🔑 **Secure API Key Storage**: Blockfrost API keys stored in secure cookies (30-day expiry)
+- ✅ **API Key Validation**: Real-time validation of Blockfrost API keys
+- 🎯 **Network Validation**: Automatic wallet network verification
+
+### Enhanced User Experience
+- 📊 **Visual Progress Tracker**: See your progress through the attestation workflow
+- ⬅️➡️ **Flexible Navigation**: Move backward and forward between steps
+- ✓ **Step Completion Indicators**: Checkmarks show completed steps
+- 🎨 **Modern UI Design**: Cardano Foundation Reeve-inspired design
+- 📱 **Responsive Layout**: Works on desktop and mobile devices
+- 🔄 **Loading States**: Clear feedback during operations
+
+### Wallet Features
+- 🔗 **Multi-Wallet Support**: Compatible with multiple Cardano wallet extensions
+- 🌍 **Network Mismatch Detection**: Warns if wallet network doesn't match app settings
+- 📍 **Address Display**: Shows connected wallet address
+- 🛡️ **Network Validation**: Ensures wallet is on correct network before proceeding
+
+### Identifier Management
+- ⚡ **Real-time Verification**: Identifiers verified at input step, not later
+- 🔍 **Signify Integration**: Direct validation with Signify service
+- 💬 **Clear Feedback**: Visual indicators for verification status
+
 ## Configuration
 
-The application can be configured via environment variables. Create a `.env.local` file in the root directory:
+The application supports both environment variables and runtime configuration:
+
+### Environment Variables (Optional)
+
+Create a `.env.local` file in the root directory:
 
 ```bash
-# Network configuration (mainnet, preprod, or preview)
+# Default network (optional - can be changed in UI)
 NEXT_PUBLIC_CARDANO_NETWORK=mainnet
 
-# Signify service URL
+# Signify service URL (optional)
 NEXT_PUBLIC_SIGNIFY_URL=http://localhost:3901
 ```
 
-**Important:** The Blockfrost API key is entered via the frontend interface for security reasons and should NOT be stored in environment files.
+### Runtime Configuration
+
+All network settings can be configured through the UI:
+1. Click the **Network Settings** button in the top-right corner
+2. Select your network (mainnet, preprod, or preview)
+3. Optionally enable custom Blockfrost URL
+4. Enter your Blockfrost API key
+5. Click **Validate & Save**
+
+Settings are automatically persisted across browser sessions.
 
 ## Prerequisites
 
 - Node.js 18+ installed
-- A Cardano wallet browser extension (Nami, Eternl, Flint, etc.)
+- A Cardano wallet browser extension (Eternl, Nami, Flint, Lace, etc.)
 - Blockfrost API key (get one at https://blockfrost.io)
 - Signify service running (default: http://localhost:3901)
 
@@ -72,14 +115,36 @@ npm run dev
 
 ## Usage
 
+### Getting Started
+
+1. **Configure Network** (if not using defaults):
+   - Click the **Network Settings** button in the top-right
+   - Select your desired network
+   - Enter your Blockfrost API key
+   - Click **Validate & Save**
+
+2. **Follow the Attestation Workflow**:
+   - Progress is tracked visually at the top of the page
+   - You can navigate backward using the **← Back** button
+   - Each completed step shows a checkmark ✓
+
 ### Workflow Steps
 
 1. **Connect Wallet**: Connect your Cardano browser wallet
-2. **Input Transaction**: Enter a Cardano transaction hash and your Blockfrost API key
-3. **KERI Identifier**: Provide identifier name and name for Signify client
+   - Ensures wallet is on the correct network
+   - Displays wallet address after connection
+2. **Transaction**: Enter a Cardano transaction hash
+   - Transaction hash is validated (64 hex characters)
+   - Metadata is fetched from Blockfrost
+3. **KERI Identifier**: Provide identifier name and client name for Signify
+   - Identifier is verified in real-time with Signify
+   - Must complete verification before proceeding
 4. **View Metadata**: Review the fetched metadata and its Blake2b hash
 5. **Create Interaction**: Create a KERI interaction event with the hash
+   - Event is created with Signify service
+   - Sequence number is retrieved
 6. **Preview**: Review the CIP-0170 compliant metadata
+   - Shows complete transaction metadata including attestation
 7. **Publish**: Publish the attestation transaction to Cardano
 8. **Complete**: View your transaction on Cardano Explorer
 
