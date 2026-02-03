@@ -1,14 +1,23 @@
 // Utility functions for KERI and transaction handling
 
 import { blake2b } from 'blakejs';
+import { encode as cborEncode } from 'cbor-x';
 
 /**
  * Hash data using Blake2b-256 and return CESR qb64 format
  * Uses 'F' prefix for Blake2b-256 digest (32 bytes)
+ * 
+ * Process:
+ * 1. Serialize data to CBOR format (matching Java's CborSerializationUtil.serialize)
+ * 2. Hash the CBOR bytes with Blake2b-256
+ * 3. Encode as CESR qb64 format
  */
 export function hashMetadata(data: any): string {
-  const jsonString = JSON.stringify(data);
-  const hash = blake2b(jsonString, undefined, 32); // 32 bytes = 256 bits
+  // Serialize to CBOR format (same as Java: CborSerializationUtil.serialize(map.getMap()))
+  const cborBytes = cborEncode(data);
+  
+  // Hash the CBOR bytes (same as Java: new Diger(new RawArgs(), cborBytes))
+  const hash = blake2b(cborBytes, undefined, 32); // 32 bytes = 256 bits
   
   // Convert to base64url (RFC 4648 §5)
   const hashBase64 = Buffer.from(hash).toString('base64')
