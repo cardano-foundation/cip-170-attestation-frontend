@@ -1,28 +1,52 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BrowserWallet } from '@meshsdk/core';
-import { useWallet } from '@meshsdk/react';
-import { SignifyClient, Serder, Authenticater, ready } from 'signify-ts';
+import { SignifyClient, ready } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
-import { getSignifyUrl, getCardanoNetwork, getCardanoExplorerUrl, getBlockfrostUrl } from '@/lib/config';
+import { getSignifyUrl } from '@/lib/config';
+import { 
+  CardanoNetwork, 
+  getCurrentNetworkConfig, 
+  getBlockfrostApiKey,
+  saveBlockfrostApiKey 
+} from '@/lib/network-config';
+import { getPreviousStep, isStepCompleted } from '@/lib/workflow-state';
+import NetworkConfiguration from '@/components/NetworkConfiguration';
+import WalletConnection from '@/components/WalletConnection';
+import TransactionInput from '@/components/TransactionInput';
+import IdentifierInput from '@/components/IdentifierInput';
+import ProgressTracker from '@/components/ProgressTracker';
+import WalletInfoDisplay from '@/components/WalletInfoDisplay';
+import StepNavigation from '@/components/StepNavigation';
 import sodium from 'libsodium-wrappers-sumo';
 
 // Constants
 const MIN_ADA_LOVELACE = '1000000'; // 1 ADA minimum for transaction output
 
 export default function Home() {
-  // Configuration from environment
+  // Network configuration
+  const [network, setNetwork] = useState<CardanoNetwork>('mainnet');
+  const [blockfrostUrl, setBlockfrostUrl] = useState('');
+  const [blockfrostApiKey, setBlockfrostApiKey] = useState('');
+  const [explorerUrl, setExplorerUrl] = useState('');
+  
   const defaultSignifyUrl = getSignifyUrl();
-  const network = getCardanoNetwork();
-  const explorerBaseUrl = getCardanoExplorerUrl();
-  const blockfrostUrl = getBlockfrostUrl();
+
+  // Initialize network config from localStorage/cookies
+  useEffect(() => {
+    const config = getCurrentNetworkConfig();
+    setNetwork(config.network);
+    setBlockfrostUrl(config.blockfrostUrl);
+    setBlockfrostApiKey(config.blockfrostApiKey);
+    setExplorerUrl(config.explorerUrl);
+  }, []);
 
   // Wallet state
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletApi, setWalletApi] = useState<any>(null);
   const [walletName, setWalletName] = useState<string>('');
+  const [walletAddress, setWalletAddress] = useState<string>('');
 
   // Libsodium state
   const [isSodiumReady, setIsSodiumReady] = useState(false);
@@ -48,11 +72,11 @@ export default function Home() {
   const [txHash, setTxHash] = useState('');
   const [identifierName, setIdentifierName] = useState('');
   const [name, setName] = useState('');
-  const [blockfrostApiKey, setBlockfrostApiKey] = useState('');
   const [signifyUrl, setSignifyUrl] = useState(defaultSignifyUrl);
 
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>(WorkflowStep.CONNECT_WALLET);
+  const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
   const [metadata, setMetadata] = useState<TransactionMetadata | null>(null);
   const [metadataHash, setMetadataHash] = useState('');
   const [sequenceNumber, setSequenceNumber] = useState(0);
@@ -65,29 +89,41 @@ export default function Home() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Connect wallet
-  const connectWallet = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const availableWallets = await BrowserWallet.getInstalledWallets();
-      
-      if (availableWallets.length === 0) {
-        throw new Error('No Cardano wallet found. Please install a wallet extension.');
-      }
+  // Mark step as completed
+  const markStepCompleted = (step: WorkflowStep) => {
+    setCompletedSteps(prev => new Set(prev).add(step));
+  };
 
-      const wallet = await BrowserWallet.enable(availableWallets[0].name);
-      setWalletApi(wallet);
-      setWalletName(availableWallets[0].name);
-      setWalletConnected(true);
-      setCurrentStep(WorkflowStep.INPUT_TX_HASH);
-      setSuccess('Wallet connected successfully!');
-    } catch (err: any) {
-      setError(`Failed to connect wallet: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+  // Navigate to step
+  const navigateToStep = (step: WorkflowStep) => {
+    setCurrentStep(step);
+    setError('');
+    setSuccess('');
+  };
+
+  // Handle network configuration change
+  const handleNetworkConfigChange = (config: {
+    network: CardanoNetwork;
+    blockfrostUrl: string;
+    blockfrostApiKey: string;
+    explorerUrl: string;
+  }) => {
+    setNetwork(config.network);
+    setBlockfrostUrl(config.blockfrostUrl);
+    setBlockfrostApiKey(config.blockfrostApiKey);
+    setExplorerUrl(config.explorerUrl);
+    setSuccess('Network configuration updated successfully!');
+  };
+
+  // Connect wallet handler
+  const handleWalletConnect = (wallet: any, address: string, name: string) => {
+    setWalletApi(wallet);
+    setWalletAddress(address);
+    setWalletName(name);
+    setWalletConnected(true);
+    markStepCompleted(WorkflowStep.CONNECT_WALLET);
+    setCurrentStep(WorkflowStep.INPUT_TX_HASH);
+    setSuccess('Wallet connected successfully!');
   };
 
   // Fetch transaction metadata from Blockfrost
@@ -97,7 +133,7 @@ export default function Home() {
       setError('');
       
       if (!blockfrostApiKey) {
-        throw new Error('Please provide Blockfrost API key');
+        throw new Error('Please configure Blockfrost API key in network settings');
       }
 
       if (!txHash) {
@@ -130,6 +166,7 @@ export default function Home() {
       });
 
       setMetadata(metadataObj);
+      markStepCompleted(WorkflowStep.INPUT_TX_HASH);
       setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
       setSuccess('Transaction metadata fetched successfully!');
     } catch (err: any) {
@@ -137,6 +174,14 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle identifier verification
+  const handleIdentifierVerified = (identifierPrefix: string) => {
+    setIdentifier(identifierPrefix);
+    markStepCompleted(WorkflowStep.INPUT_IDENTIFIER);
+    // Automatically hash metadata and proceed
+    hashAndShowMetadata();
   };
 
   // Hash metadata and show to user
@@ -157,6 +202,7 @@ export default function Home() {
       
       const hash = hashMetadata(metadata);
       setMetadataHash(hash);
+      markStepCompleted(WorkflowStep.SHOW_METADATA);
       setCurrentStep(WorkflowStep.SHOW_METADATA);
       setSuccess('Metadata hashed successfully!');
     } catch (err: any) {
@@ -172,8 +218,8 @@ export default function Home() {
       setLoading(true);
       setError('');
 
-      if (!identifierName || !name) {
-        throw new Error('Please provide identifier name and name');
+      if (!identifierName || !name || !identifier) {
+        throw new Error('Identifier not verified');
       }
 
       // Initialize libsodium (required for signify-ts)
@@ -182,41 +228,29 @@ export default function Home() {
         setIsSodiumReady(true);
       }
 
-      // Initialize Signify client (third parameter is tier, using default)
+      // Initialize Signify client
       const client = new SignifyClient(signifyUrl, name);
       
       // Connect to Signify
       await client.connect();
-      
-      // Get or create identifier
-      let aid;
-      try {
-        const identifiers = await client.identifiers().list();
-        aid = identifiers.aids.find((a: any) => a.name === identifierName);
-        
-        if (!aid) {
-          throw new Error(`Identifier "${identifierName}" not found. Please create it first using Signify.`);
-        }
-      } catch (err) {
-        throw new Error(`Failed to retrieve identifier: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      }
-
-      setIdentifier(aid.prefix);
 
       // Create interaction event with the hash
       const interactionResult = await client.identifiers().interact(identifierName, [metadataHash]);
       console.log('Interaction event created:', interactionResult);
+      
       // Get the sequence number from the interaction
       const serder = interactionResult.serder;
       const sad = serder.sad;
       console.log(sad);
       console.log(sad.s);
       console.log(parseInt(sad.s, 16));
-      // Serder is the event, we need to parse it to get the sequence number
+      
+      // Parse sequence number
       const eventData: any = serder;
       const seqNo = parseInt(eventData.s || eventData.sn || '0', 16);
       
       setSequenceNumber(seqNo);
+      markStepCompleted(WorkflowStep.BUILD_TRANSACTION);
       setCurrentStep(WorkflowStep.BUILD_TRANSACTION);
       setSuccess(`Interaction event created with sequence number: ${seqNo}`);
     } catch (err: any) {
@@ -244,6 +278,7 @@ export default function Home() {
       );
 
       setCip170Metadata(cip170Meta);
+      markStepCompleted(WorkflowStep.PREVIEW_METADATA);
       setCurrentStep(WorkflowStep.PREVIEW_METADATA);
       setSuccess('Transaction metadata built successfully!');
     } catch (err: any) {
@@ -285,6 +320,7 @@ export default function Home() {
       const txHash = await walletApi.submitTx(signedTx);
       
       setPublishedTxHash(txHash);
+      markStepCompleted(WorkflowStep.COMPLETED);
       setCurrentStep(WorkflowStep.COMPLETED);
       setSuccess('Transaction published successfully!');
     } catch (err: any) {
@@ -294,13 +330,21 @@ export default function Home() {
     }
   };
 
+  // Handle going back
+  const handleBack = () => {
+    const previousStep = getPreviousStep(currentStep);
+    if (previousStep) {
+      navigateToStep(previousStep);
+    }
+  };
+
   return (
     <div className="container">
       <h1>KERI Cardano Transaction Attestation</h1>
       <p>Attest Cardano transactions with KERI using Signify</p>
-      <p className="network-info">
-        Network: <strong>{network}</strong>
-      </p>
+
+      {/* Network Configuration */}
+      <NetworkConfiguration onConfigChange={handleNetworkConfigChange} />
 
       {/* Critical Initialization Error */}
       {sodiumError && (
@@ -317,119 +361,74 @@ export default function Home() {
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
 
-        {/* Workflow Steps */}
-        <div className="card">
-          <div className="steps">
-            {Object.values(WorkflowStep).map((step, index) => (
-              <div
-                key={step}
-                className={`step ${Object.values(WorkflowStep).indexOf(currentStep) >= index ? 'active' : ''}`}
-              >
-                {step.replace(/_/g, ' ').toUpperCase()}
-              </div>
-            ))}
-          </div>
+      {/* Progress Tracker */}
+      {walletConnected && (
+        <ProgressTracker
+          currentStep={currentStep}
+          completedSteps={completedSteps}
+          onStepClick={navigateToStep}
+        />
+      )}
 
-          {/* Step 1: Connect Wallet */}
-          {currentStep === WorkflowStep.CONNECT_WALLET && (
-            <div>
-              <h2>Connect Your Wallet</h2>
-              <button
-                onClick={connectWallet}
-                disabled={loading}
-                className="button"
-              >
-                {loading ? 'Connecting...' : 'Connect Cardano Wallet'}
-              </button>
-            </div>
-          )}
+      <div className="card">
+        {/* Step 1: Connect Wallet */}
+        {currentStep === WorkflowStep.CONNECT_WALLET && (
+          <WalletConnection
+            network={network}
+            onConnect={handleWalletConnect}
+            onError={setError}
+          />
+        )}
 
-          {/* Step 2: Input Transaction Hash */}
-          {currentStep === WorkflowStep.INPUT_TX_HASH && (
-            <div>
-              <h2>Enter Transaction Details</h2>
-              <div>
-                <label className="label">Transaction Hash</label>
-                <input
-                  type="text"
-                  value={txHash}
-                  onChange={(e) => setTxHash(e.target.value)}
-                  placeholder="Enter Cardano transaction hash"
-                  className="input"
-                />
-              </div>
-              <div>
-                <label className="label">Blockfrost API Key</label>
-                <input
-                  type="password"
-                  value={blockfrostApiKey}
-                  onChange={(e) => setBlockfrostApiKey(e.target.value)}
-                  placeholder="Enter your Blockfrost API key"
-                  className="input"
-                />
-              </div>
-              <button
-                onClick={fetchTransactionMetadata}
-                disabled={loading || !txHash || !blockfrostApiKey}
-                className="button"
-              >
-                {loading ? 'Fetching...' : 'Fetch Transaction Metadata'}
-              </button>
-            </div>
-          )}
+        {/* Step 2: Input Transaction Hash */}
+        {currentStep === WorkflowStep.INPUT_TX_HASH && (
+          <>
+            <TransactionInput
+              txHash={txHash}
+              onTxHashChange={setTxHash}
+              onFetchMetadata={fetchTransactionMetadata}
+              loading={loading}
+            />
+            <StepNavigation onBack={handleBack} />
+          </>
+        )}
 
-          {/* Step 3: Input KERI Identifier */}
-          {currentStep === WorkflowStep.INPUT_IDENTIFIER && (
-            <div>
-              <h2>KERI Identifier Information</h2>
-              <div>
-                <label className="label">Identifier Name</label>
-                <input
-                  type="text"
-                  value={identifierName}
-                  onChange={(e) => setIdentifierName(e.target.value)}
-                  placeholder="Enter identifier name"
-                  className="input"
-                />
-              </div>
-              <div>
-                <label className="label">Name (for Signify client)</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter name for Signify client"
-                  className="input"
-                />
-              </div>
-              <div>
-                <label className="label">Signify URL (configured: {defaultSignifyUrl})</label>
-                <input
-                  type="text"
-                  value={signifyUrl}
-                  onChange={(e) => setSignifyUrl(e.target.value)}
-                  placeholder={defaultSignifyUrl}
-                  className="input"
-                />
-              </div>
-              <button
-                onClick={hashAndShowMetadata}
-                disabled={loading || !identifierName || !name || !isSodiumReady}
-                className="button"
-              >
-                {loading ? 'Processing...' : !isSodiumReady ? 'Initializing...' : 'Continue'}
-              </button>
-            </div>
-          )}
+        {/* Step 3: Input KERI Identifier */}
+        {currentStep === WorkflowStep.INPUT_IDENTIFIER && (
+          <>
+            <IdentifierInput
+              identifierName={identifierName}
+              onIdentifierNameChange={setIdentifierName}
+              name={name}
+              onNameChange={setName}
+              signifyUrl={signifyUrl}
+              onSignifyUrlChange={setSignifyUrl}
+              onIdentifierVerified={handleIdentifierVerified}
+              onError={setError}
+              isSodiumReady={isSodiumReady}
+            />
+            <StepNavigation onBack={handleBack} />
+          </>
+        )}
 
-          {/* Step 4: Show Metadata and Hash */}
-          {currentStep === WorkflowStep.SHOW_METADATA && (
-            <div>
+        {/* Step 4: Show Metadata and Hash */}
+        {currentStep === WorkflowStep.SHOW_METADATA && (
+          <div>
+            <div className="step-card">
+              <div className="step-icon">📊</div>
               <h2>Transaction Metadata</h2>
-              <div className="code-block">
-                <pre>{JSON.stringify(metadata, null, 2)}</pre>
+              <p className="subtitle">
+                Review the fetched metadata and its cryptographic hash
+              </p>
+              
+              <div className="form-group">
+                <label className="label">Metadata Content</label>
+                <div className="code-block">
+                  <pre>{JSON.stringify(metadata, null, 2)}</pre>
+                </div>
               </div>
-              <div>
+
+              <div className="form-group">
                 <label className="label">Blake2b Hash (CESR format)</label>
                 <input
                   type="text"
@@ -438,21 +437,29 @@ export default function Home() {
                   className="input"
                 />
               </div>
-              <button
-                onClick={createInteractionEvent}
-                disabled={loading || !isSodiumReady}
-                className="button"
-              >
-                {loading ? 'Creating...' : !isSodiumReady ? 'Initializing...' : 'Create KERI Interaction Event'}
-              </button>
             </div>
-          )}
+            
+            <StepNavigation
+              onBack={handleBack}
+              onNext={createInteractionEvent}
+              nextLabel="Create KERI Interaction Event"
+              nextDisabled={!isSodiumReady}
+              loading={loading}
+            />
+          </div>
+        )}
 
-          {/* Step 5: Build Transaction */}
-          {currentStep === WorkflowStep.BUILD_TRANSACTION && (
-            <div>
+        {/* Step 5: Build Transaction */}
+        {currentStep === WorkflowStep.BUILD_TRANSACTION && (
+          <div>
+            <div className="step-card">
+              <div className="step-icon">🔨</div>
               <h2>Interaction Event Created</h2>
-              <div>
+              <p className="subtitle">
+                Your KERI interaction event has been created successfully
+              </p>
+              
+              <div className="form-group">
                 <label className="label">Identifier</label>
                 <input
                   type="text"
@@ -461,7 +468,8 @@ export default function Home() {
                   className="input"
                 />
               </div>
-              <div>
+
+              <div className="form-group">
                 <label className="label">Sequence Number</label>
                 <input
                   type="text"
@@ -470,43 +478,63 @@ export default function Home() {
                   className="input"
                 />
               </div>
-              <button
-                onClick={buildTransaction}
-                disabled={loading}
-                className="button"
-              >
-                {loading ? 'Building...' : 'Build CIP-0170 Transaction'}
-              </button>
             </div>
-          )}
+            
+            <StepNavigation
+              onBack={handleBack}
+              onNext={buildTransaction}
+              nextLabel="Build CIP-0170 Transaction"
+              loading={loading}
+            />
+          </div>
+        )}
 
-          {/* Step 6: Preview Metadata */}
-          {currentStep === WorkflowStep.PREVIEW_METADATA && (
-            <div>
+        {/* Step 6: Preview Metadata */}
+        {currentStep === WorkflowStep.PREVIEW_METADATA && (
+          <div>
+            <div className="step-card">
+              <div className="step-icon">👁️</div>
               <h2>Preview Transaction Metadata</h2>
-              <p style={{ fontSize: '0.875rem', marginBottom: '1rem', color: '#666' }}>
-                This transaction will include:
-                <br/>• Label 170: CIP-0170 attestation data
-                <br/>• Original metadata labels: {metadata && Object.keys(metadata).join(', ')}
+              <p className="subtitle">
+                Review the complete CIP-0170 compliant metadata before publishing
               </p>
-              <div className="code-block">
-                <pre>{JSON.stringify(cip170Metadata, null, 2)}</pre>
+              
+              <div style={{ fontSize: '0.95rem', marginBottom: '1.5rem', color: '#666', textAlign: 'left' }}>
+                This transaction will include:
+                <br/>• <strong>Label 170:</strong> CIP-0170 attestation data
+                <br/>• <strong>Original metadata labels:</strong> {metadata && Object.keys(metadata).join(', ')}
               </div>
-              <button
-                onClick={publishTransaction}
-                disabled={loading}
-                className="button"
-              >
-                {loading ? 'Publishing...' : 'Publish to Blockchain'}
-              </button>
-            </div>
-          )}
 
-          {/* Step 7: Completed */}
-          {currentStep === WorkflowStep.COMPLETED && (
-            <div>
-              <h2 style={{color: '#22c55e'}}>Transaction Published!</h2>
-              <div>
+              <div className="form-group">
+                <label className="label">Complete Metadata</label>
+                <div className="code-block">
+                  <pre>{JSON.stringify(cip170Metadata, null, 2)}</pre>
+                </div>
+              </div>
+            </div>
+            
+            <StepNavigation
+              onBack={handleBack}
+              onNext={publishTransaction}
+              nextLabel="Publish to Blockchain"
+              loading={loading}
+            />
+          </div>
+        )}
+
+        {/* Step 7: Completed */}
+        {currentStep === WorkflowStep.COMPLETED && (
+          <div>
+            <div className="step-card">
+              <div className="step-icon">✅</div>
+              <h2 style={{color: 'var(--success-color)', textAlign: 'center'}}>
+                Transaction Published!
+              </h2>
+              <p className="subtitle">
+                Your attestation transaction has been successfully published to the blockchain
+              </p>
+              
+              <div className="form-group">
                 <label className="label">Transaction Hash</label>
                 <input
                   type="text"
@@ -514,42 +542,51 @@ export default function Home() {
                   readOnly
                   className="input"
                 />
-                <a
-                  href={`${explorerBaseUrl}/transaction/${publishedTxHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="link"
-                >
-                  View on Cardano Explorer →
-                </a>
               </div>
+
+              <a
+                href={`${explorerUrl}/transaction/${publishedTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button button-secondary"
+                style={{ marginBottom: '1rem', display: 'block', textDecoration: 'none' }}
+              >
+                View on Cardano Explorer →
+              </a>
+
               <button
                 onClick={() => {
                   // Reset form
                   setCurrentStep(WorkflowStep.INPUT_TX_HASH);
+                  setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET]));
                   setTxHash('');
                   setMetadata(null);
                   setMetadataHash('');
                   setSequenceNumber(0);
                   setIdentifier('');
+                  setIdentifierName('');
+                  setName('');
                   setCip170Metadata(null);
                   setPublishedTxHash('');
                   setError('');
                   setSuccess('');
                 }}
-                className="button"
+                className="button button-primary"
               >
                 Start New Attestation
               </button>
             </div>
-          )}
+          </div>
+        )}
       </div>
 
       {/* Wallet Info */}
-      {walletConnected && (
-        <div className="wallet-info">
-          Connected: <span>{walletName}</span>
-        </div>
+      {walletConnected && walletAddress && (
+        <WalletInfoDisplay
+          walletName={walletName}
+          address={walletAddress}
+          network={network}
+        />
       )}
     </div>
   );
