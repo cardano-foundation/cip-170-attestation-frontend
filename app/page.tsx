@@ -272,13 +272,7 @@ export default function Home() {
       // Get the sequence number from the interaction
       const serder = interactionResult.serder;
       const sad = serder.sad;
-      console.log(sad);
-      console.log(sad.s);
-      console.log(parseInt(sad.s, 16));
-      
-      // Parse sequence number
-      const eventData: any = serder;
-      const seqNo = parseInt(eventData.s || eventData.sn || '0', 16);
+      const seqNo = parseInt(sad.s, 16);
       
       setSequenceNumber(seqNo);
       markStepCompleted(WorkflowStep.BUILD_TRANSACTION);
