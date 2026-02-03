@@ -7,6 +7,7 @@ import { SignifyClient, Serder, Authenticater, ready } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
 import { getSignifyUrl, getCardanoNetwork, getCardanoExplorerUrl, getBlockfrostUrl } from '@/lib/config';
+import sodium from 'libsodium-wrappers-sumo';
 
 // Constants
 const MIN_ADA_LOVELACE = '1000000'; // 1 ADA minimum for transaction output
@@ -22,6 +23,26 @@ export default function Home() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletApi, setWalletApi] = useState<any>(null);
   const [walletName, setWalletName] = useState<string>('');
+
+  // Libsodium state
+  const [isSodiumReady, setIsSodiumReady] = useState(false);
+  const [sodiumError, setSodiumError] = useState('');
+
+  useEffect(() => {
+    const initSodium = async () => {
+      try {
+        await sodium.ready;
+        await ready(); // Helper from signify-ts might also do things, but we ensure wrapper is ready first
+        console.log('Libsodium initialized');
+        setIsSodiumReady(true);
+        setSodiumError('');
+      } catch (err: any) {
+        console.error('Libsodium initialization failed:', err);
+        setSodiumError(`Libsodium failed to load: ${err.message || err}. Try refreshing the page.`);
+      }
+    };
+    initSodium();
+  }, []);
 
   // Form inputs
   const [txHash, setTxHash] = useState('');
@@ -127,6 +148,12 @@ export default function Home() {
       if (!metadata) {
         throw new Error('No metadata to hash');
       }
+
+      // Initialize libsodium (required for Diger in hashMetadata)
+      if (!isSodiumReady) {
+        await ready();
+        setIsSodiumReady(true);
+      }
       
       const hash = hashMetadata(metadata);
       setMetadataHash(hash);
@@ -150,7 +177,10 @@ export default function Home() {
       }
 
       // Initialize libsodium (required for signify-ts)
-      await ready();
+      if (!isSodiumReady) {
+        await ready();
+        setIsSodiumReady(true);
+      }
 
       // Initialize Signify client (third parameter is tier, using default)
       const client = new SignifyClient(signifyUrl, name);
@@ -175,9 +205,13 @@ export default function Home() {
 
       // Create interaction event with the hash
       const interactionResult = await client.identifiers().interact(identifierName, [metadataHash]);
-      
+      console.log('Interaction event created:', interactionResult);
       // Get the sequence number from the interaction
       const serder = interactionResult.serder;
+      const sad = serder.sad;
+      console.log(sad);
+      console.log(sad.s);
+      console.log(parseInt(sad.s, 16));
       // Serder is the event, we need to parse it to get the sequence number
       const eventData: any = serder;
       const seqNo = parseInt(eventData.s || eventData.sn || '0', 16);
@@ -267,6 +301,17 @@ export default function Home() {
       <p className="network-info">
         Network: <strong>{network}</strong>
       </p>
+
+      {/* Critical Initialization Error */}
+      {sodiumError && (
+        <div className="error" style={{border: '2px solid red', padding: '1rem', marginBottom: '1rem'}}>
+          <strong>Critical Error:</strong> {sodiumError}
+          <div style={{marginTop: '0.5rem', fontSize: '0.9em'}}>
+            The cryptographic library (libsodium) failed to initialize. 
+            This usually happens due to browser compatibility issues or WebAssembly loading failures.
+          </div>
+        </div>
+      )}
 
       {/* Status Messages */}
       {error && <div className="error">{error}</div>}
@@ -369,10 +414,10 @@ export default function Home() {
               </div>
               <button
                 onClick={hashAndShowMetadata}
-                disabled={loading || !identifierName || !name}
+                disabled={loading || !identifierName || !name || !isSodiumReady}
                 className="button"
               >
-                {loading ? 'Processing...' : 'Continue'}
+                {loading ? 'Processing...' : !isSodiumReady ? 'Initializing...' : 'Continue'}
               </button>
             </div>
           )}
@@ -395,10 +440,10 @@ export default function Home() {
               </div>
               <button
                 onClick={createInteractionEvent}
-                disabled={loading}
+                disabled={loading || !isSodiumReady}
                 className="button"
               >
-                {loading ? 'Creating...' : 'Create KERI Interaction Event'}
+                {loading ? 'Creating...' : !isSodiumReady ? 'Initializing...' : 'Create KERI Interaction Event'}
               </button>
             </div>
           )}
