@@ -84,7 +84,7 @@ export default function Home() {
       }
 
       // Call Blockfrost API directly using their OpenAPI endpoint
-      const response = await fetch(`${blockfrostUrl}/txs/${txHash}/metadata`, {
+      const response = await fetch(`${blockfrostUrl}/txs/${txHash}/metadata/cbor`, {
         method: 'GET',
         headers: {
           'project_id': blockfrostApiKey,
@@ -105,7 +105,7 @@ export default function Home() {
       // Convert metadata array to object
       const metadataObj: TransactionMetadata = {};
       txMetadata.forEach((item: any) => {
-        metadataObj[item.label] = item.json_metadata;
+        metadataObj[item.label] = item.cbor_metadata;
       });
 
       setMetadata(metadataObj);
@@ -127,7 +127,7 @@ export default function Home() {
       if (!metadata) {
         throw new Error('No metadata to hash');
       }
-
+      
       const hash = hashMetadata(metadata);
       setMetadataHash(hash);
       setCurrentStep(WorkflowStep.SHOW_METADATA);

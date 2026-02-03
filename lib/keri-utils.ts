@@ -1,32 +1,53 @@
 // Utility functions for KERI and transaction handling
 
 import { blake2b } from 'blakejs';
-import { encode as cborEncode } from 'cbor-x';
+import { encode as cborEncode, decode } from 'cbor-x';
+import { Diger } from 'signify-ts';
 
-/**
- * Hash data using Blake2b-256 and return CESR qb64 format
- * Uses 'F' prefix for Blake2b-256 digest (32 bytes)
- * 
- * Process:
- * 1. Serialize data to CBOR format (matching Java's CborSerializationUtil.serialize)
- * 2. Hash the CBOR bytes with Blake2b-256
- * 3. Encode as CESR qb64 format
- */
 export function hashMetadata(data: any): string {
-  // Serialize to CBOR format (same as Java: CborSerializationUtil.serialize(map.getMap()))
-  const cborBytes = cborEncode(data);
-  
-  // Hash the CBOR bytes (same as Java: new Diger(new RawArgs(), cborBytes))
-  const hash = blake2b(cborBytes, undefined, 32); // 32 bytes = 256 bits
-  
-  // Convert to base64url (RFC 4648 §5)
-  const hashBase64 = Buffer.from(hash).toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-  
-  // CESR qb64 format for Blake2b-256: 'F' prefix + 43 chars base64url = 44 chars total
-  return `F${hashBase64}`;
+  console.log("Hashing metadata:", data["1447"]);
+
+  // 1. Remove \x and convert hex → bytes
+  const hex = data["1447"].replace(/\\x/g, "");
+  const bytes = Uint8Array.from(
+    hex.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16))
+  );
+
+  // 2. Strip the outer map(label → value) WITHOUT re-encoding
+  // CBOR structure: a1 <label> <value>
+  // We skip:
+  //   a1           (map(1))
+  //   19 05 a7     (uint 1447)
+  // and take the remaining bytes as-is
+
+  let offset = 0;
+
+  // skip map header
+  if (bytes[offset] === 0xa1) {
+    offset += 1;
+  } else if (bytes[offset] === 0xb9) {
+    offset += 3; // map with uint16 length
+  } else {
+    throw new Error("Unexpected CBOR map header");
+  }
+
+  // skip label (1447)
+  if (bytes[offset] === 0x19) {
+    offset += 3; // uint16
+  } else {
+    throw new Error("Unexpected metadata label encoding");
+  }
+
+  // 3. Remaining bytes are EXACT value bytes Java hashed
+  const valueBytes = bytes.slice(offset);
+
+  console.log("CBOR value hex:", Buffer.from(valueBytes).toString("hex"));
+
+  // 4. qb64 hash EXACT bytes
+  const diger = new Diger({}, valueBytes);
+
+  console.log("Computed digest qb64:", diger.qb64);
+  return diger.qb64;
 }
 
 /**
@@ -58,7 +79,7 @@ export function buildCIP170Metadata(
       }
     }
   };
-  
+
   // Add all original metadata with their original labels
   // This preserves the exact structure of the original transaction
   if (originalMetadata && typeof originalMetadata === 'object') {
@@ -69,9 +90,9 @@ export function buildCIP170Metadata(
         acc[label] = originalMetadata[label];
         return acc;
       }, {} as any);
-    
+
     Object.assign(metadata, filteredMetadata);
   }
-  
+
   return metadata;
 }
