@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { WalletIcon, WarningIcon } from '@/components/icons';
 import { BrowserWallet } from '@meshsdk/core';
 import { CardanoNetwork, getNetworkMagic } from '@/lib/network-config';
 
@@ -78,14 +79,17 @@ export default function WalletConnection({ network, onConnect, onError }: Wallet
   return (
     <div className="wallet-connection">
       <div className="wallet-card">
-        <div className="wallet-icon">🔗</div>
+        <div className="wallet-icon">
+          <WalletIcon size={48} />
+        </div>
         <h2>Connect Your Wallet</h2>
         <p className="subtitle">
           Connect your Cardano wallet to begin the attestation process
         </p>
         
         <div className="network-warning">
-          <strong>⚠️ Network:</strong> Make sure your wallet is connected to <strong>{network.toUpperCase()}</strong>
+          <WarningIcon size={20} className="warning-icon" />
+          <strong>Network:</strong> Make sure your wallet is connected to <strong>{network.toUpperCase()}</strong>
         </div>
 
         {!showWalletList ? (

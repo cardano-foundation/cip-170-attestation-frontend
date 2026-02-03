@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DocumentIcon } from '@/components/icons';
 
 interface TransactionInputProps {
   txHash: string;
@@ -32,7 +33,9 @@ export default function TransactionInput({
   return (
     <div className="transaction-input">
       <div className="step-card">
-        <div className="step-icon">📝</div>
+        <div className="step-icon">
+          <DocumentIcon size={48} />
+        </div>
         <h2>Enter Transaction Details</h2>
         <p className="subtitle">
           Provide the Cardano transaction hash that contains the metadata you want to attest

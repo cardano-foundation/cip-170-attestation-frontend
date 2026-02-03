@@ -19,6 +19,7 @@ import IdentifierInput from '@/components/IdentifierInput';
 import ProgressTracker from '@/components/ProgressTracker';
 import WalletInfoDisplay from '@/components/WalletInfoDisplay';
 import StepNavigation from '@/components/StepNavigation';
+import { ChartIcon, BuildIcon, EyeIcon, CheckIcon } from '@/components/icons';
 import sodium from 'libsodium-wrappers-sumo';
 
 // Constants
@@ -415,7 +416,9 @@ export default function Home() {
         {currentStep === WorkflowStep.SHOW_METADATA && (
           <div>
             <div className="step-card">
-              <div className="step-icon">📊</div>
+              <div className="step-icon">
+                <ChartIcon size={48} />
+              </div>
               <h2>Transaction Metadata</h2>
               <p className="subtitle">
                 Review the fetched metadata and its cryptographic hash
@@ -453,7 +456,9 @@ export default function Home() {
         {currentStep === WorkflowStep.BUILD_TRANSACTION && (
           <div>
             <div className="step-card">
-              <div className="step-icon">🔨</div>
+              <div className="step-icon">
+                <BuildIcon size={48} />
+              </div>
               <h2>Interaction Event Created</h2>
               <p className="subtitle">
                 Your KERI interaction event has been created successfully
@@ -493,7 +498,9 @@ export default function Home() {
         {currentStep === WorkflowStep.PREVIEW_METADATA && (
           <div>
             <div className="step-card">
-              <div className="step-icon">👁️</div>
+              <div className="step-icon">
+                <EyeIcon size={48} />
+              </div>
               <h2>Preview Transaction Metadata</h2>
               <p className="subtitle">
                 Review the complete CIP-0170 compliant metadata before publishing
@@ -526,7 +533,9 @@ export default function Home() {
         {currentStep === WorkflowStep.COMPLETED && (
           <div>
             <div className="step-card">
-              <div className="step-icon">✅</div>
+              <div className="step-icon">
+                <CheckIcon size={48} />
+              </div>
               <h2 style={{color: 'var(--success-color)', textAlign: 'center'}}>
                 Transaction Published!
               </h2>

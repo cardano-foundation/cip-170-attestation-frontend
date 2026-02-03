@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { SettingsIcon } from '@/components/icons';
 import {
   CardanoNetwork,
   DEFAULT_NETWORKS,
@@ -97,7 +98,8 @@ export default function NetworkConfiguration({ onConfigChange }: NetworkConfigPr
         onClick={() => setIsOpen(!isOpen)}
       >
         <span className="network-badge">{network.toUpperCase()}</span>
-        <span>⚙️ Network Settings</span>
+        <SettingsIcon size={18} />
+        <span>Network Settings</span>
       </button>
 
       {isOpen && (

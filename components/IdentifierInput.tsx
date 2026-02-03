@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SignifyClient, ready } from 'signify-ts';
+import { KeyIcon } from '@/components/icons';
 
 interface IdentifierInputProps {
   identifierName: string;
@@ -89,7 +90,9 @@ export default function IdentifierInput({
   return (
     <div className="identifier-input">
       <div className="step-card">
-        <div className="step-icon">🔑</div>
+        <div className="step-icon">
+          <KeyIcon size={48} />
+        </div>
         <h2>KERI Identifier Information</h2>
         <p className="subtitle">
           Provide your KERI identifier details to create the attestation

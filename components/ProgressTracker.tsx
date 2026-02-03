@@ -1,21 +1,22 @@
 'use client';
 
 import { WorkflowStep } from '@/lib/types';
+import { WalletIcon, DocumentIcon, KeyIcon, ChartIcon, BuildIcon, EyeIcon, CheckIcon } from '@/components/icons';
 
 interface StepInfo {
   step: WorkflowStep;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
 }
 
 const WORKFLOW_STEPS: StepInfo[] = [
-  { step: WorkflowStep.CONNECT_WALLET, label: 'Connect Wallet', icon: '🔗' },
-  { step: WorkflowStep.INPUT_TX_HASH, label: 'Transaction', icon: '📝' },
-  { step: WorkflowStep.INPUT_IDENTIFIER, label: 'Identifier', icon: '🔑' },
-  { step: WorkflowStep.SHOW_METADATA, label: 'Metadata', icon: '📊' },
-  { step: WorkflowStep.BUILD_TRANSACTION, label: 'Build', icon: '🔨' },
-  { step: WorkflowStep.PREVIEW_METADATA, label: 'Preview', icon: '👁️' },
-  { step: WorkflowStep.COMPLETED, label: 'Complete', icon: '✅' },
+  { step: WorkflowStep.CONNECT_WALLET, label: 'Connect Wallet', icon: WalletIcon },
+  { step: WorkflowStep.INPUT_TX_HASH, label: 'Transaction', icon: DocumentIcon },
+  { step: WorkflowStep.INPUT_IDENTIFIER, label: 'Identifier', icon: KeyIcon },
+  { step: WorkflowStep.SHOW_METADATA, label: 'Metadata', icon: ChartIcon },
+  { step: WorkflowStep.BUILD_TRANSACTION, label: 'Build', icon: BuildIcon },
+  { step: WorkflowStep.PREVIEW_METADATA, label: 'Preview', icon: EyeIcon },
+  { step: WorkflowStep.COMPLETED, label: 'Complete', icon: CheckIcon },
 ];
 
 interface ProgressTrackerProps {
@@ -60,9 +61,9 @@ export default function ProgressTracker({
             >
               <div className="progress-step-circle">
                 {isCompleted && !isCurrent ? (
-                  <span className="checkmark">✓</span>
+                  <CheckIcon className="step-icon-svg" size={20} />
                 ) : (
-                  <span className="step-icon">{stepInfo.icon}</span>
+                  <stepInfo.icon className="step-icon-svg" size={20} />
                 )}
               </div>
               <div className="progress-step-label">{stepInfo.label}</div>

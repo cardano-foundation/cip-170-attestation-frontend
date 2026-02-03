@@ -418,6 +418,10 @@ p {
   font-weight: bold;
 }
 
+.step-icon-svg {
+  display: inline-block;
+}
+
 /* Step Cards */
 .step-card {
   background: white;
@@ -428,9 +432,12 @@ p {
 }
 
 .step-icon {
-  font-size: 3rem;
   text-align: center;
   margin-bottom: 1rem;
+  color: var(--primary-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .wallet-card {
@@ -439,8 +446,11 @@ p {
 }
 
 .wallet-icon {
-  font-size: 4rem;
   margin-bottom: 1.5rem;
+  color: var(--primary-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Network Configuration */
@@ -693,6 +703,13 @@ p {
   margin: 1.5rem 0;
   font-size: 0.9rem;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.warning-icon {
+  flex-shrink: 0;
 }
 
 /* Responsive */
