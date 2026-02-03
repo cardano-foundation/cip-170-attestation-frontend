@@ -20,6 +20,8 @@ import ProgressTracker from '@/components/ProgressTracker';
 import WalletInfoDisplay from '@/components/WalletInfoDisplay';
 import StepNavigation from '@/components/StepNavigation';
 import { ChartIcon, BuildIcon, EyeIcon, CheckIcon } from '@/components/icons';
+import { MeshTxBuilder } from '@meshsdk/core';
+import { BlockfrostProvider } from '@meshsdk/core';
 import sodium from 'libsodium-wrappers-sumo';
 
 // Constants
@@ -327,7 +329,11 @@ export default function Home() {
         throw new Error('Wallet not connected or metadata not ready');
       }
 
-      // Get wallet address
+      if (!blockfrostApiKey) {
+        throw new Error('Blockfrost API key not configured');
+      }
+
+      // Get wallet address and UTxOs
       const usedAddresses = await walletApi.getUsedAddresses();
       const changeAddress = await walletApi.getChangeAddress();
       
@@ -335,18 +341,68 @@ export default function Home() {
         throw new Error('No addresses found in wallet');
       }
 
-      // Build transaction with metadata (sends to self with minimum ADA)
-      const tx = await walletApi.buildTx()
+      // Get UTxOs from wallet
+      const utxos = await walletApi.getUtxos();
+      
+      if (!utxos || utxos.length === 0) {
+        throw new Error('No UTxOs available in wallet');
+      }
+
+      // Initialize Blockfrost provider
+      const blockfrostProvider = new BlockfrostProvider(blockfrostApiKey);
+
+      // Build transaction with MeshTxBuilder
+      const meshTxBuilder = new MeshTxBuilder({
+        fetcher: blockfrostProvider,
+        submitter: blockfrostProvider,
+        evaluator: blockfrostProvider,
+      });
+
+      // Build transaction: send to self with minimum ADA and add metadata
+      const unsignedTx = await meshTxBuilder
+        .txOut(usedAddresses[0], [
+          {
+            unit: 'lovelace',
+            quantity: MIN_ADA_LOVELACE,
+          },
+        ])
         .changeAddress(changeAddress)
-        .txOut(usedAddresses[0], MIN_ADA_LOVELACE)
-        .metadataJson(cip170Metadata)
+        .metadataValue(170, cip170Metadata['170'])
+        .selectUtxosFrom(utxos)
         .complete();
 
-      // Sign transaction
-      const signedTx = await walletApi.signTx(tx);
+      // Add all other metadata labels (besides 170 which we already added)
+      const txBuilder = new MeshTxBuilder({
+        fetcher: blockfrostProvider,
+        submitter: blockfrostProvider,
+        evaluator: blockfrostProvider,
+      });
+
+      // Start building transaction
+      let txBuilderChain = txBuilder
+        .txOut(usedAddresses[0], [
+          {
+            unit: 'lovelace',
+            quantity: MIN_ADA_LOVELACE,
+          },
+        ])
+        .changeAddress(changeAddress);
+
+      // Add all metadata labels
+      Object.keys(cip170Metadata).forEach((label) => {
+        txBuilderChain = txBuilderChain.metadataValue(Number(label), cip170Metadata[label]);
+      });
+
+      // Complete the transaction
+      const unsignedTxHex = await txBuilderChain
+        .selectUtxosFrom(utxos)
+        .complete();
+
+      // Sign transaction with wallet
+      const signedTxHex = await walletApi.signTx(unsignedTxHex, true);
 
       // Submit transaction
-      const txHash = await walletApi.submitTx(signedTx);
+      const txHash = await walletApi.submitTx(signedTxHex);
       
       setPublishedTxHash(txHash);
       markStepCompleted(WorkflowStep.COMPLETED);
