@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.reactbits.dev)",
+      "WebSearch",
+      "WebFetch(domain:reactbits.dev)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "WebFetch(domain:cardanoscan.io)",
+      "Bash(tail:*)",
+      "Bash(npx shadcn@latest:*)",
+      "Bash(timeout 15 npm run:*)",
+      "WebFetch(domain:preview.cardanoscan.io)",
+      "Bash(curl:*)",
+      "Bash(docker run:*)",
+      "Bash(docker stop:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(npm run:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:cardano.org)",
+      "WebFetch(domain:brandpalettes.com)",
+      "WebFetch(domain:www.designpieces.com)",
+      "WebFetch(domain:logotyp.us)"
+    ]
+  }
+}

@@ -5,11 +5,11 @@ import { SignifyClient, ready } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata } from '@/lib/types';
 import { getSignifyUrl } from '@/lib/config';
-import { 
-  CardanoNetwork, 
-  getCurrentNetworkConfig, 
+import {
+  CardanoNetwork,
+  getCurrentNetworkConfig,
   getBlockfrostApiKey,
-  saveBlockfrostApiKey 
+  saveBlockfrostApiKey
 } from '@/lib/network-config';
 import { getPreviousStep, isStepCompleted } from '@/lib/workflow-state';
 import NetworkConfiguration from '@/components/NetworkConfiguration';
@@ -20,9 +20,18 @@ import ProgressTracker from '@/components/ProgressTracker';
 import WalletInfoDisplay from '@/components/WalletInfoDisplay';
 import StepNavigation from '@/components/StepNavigation';
 import { ChartIcon, BuildIcon, EyeIcon, CheckIcon } from '@/components/icons';
+
 import { MeshTxBuilder } from '@meshsdk/core';
 import { BlockfrostProvider } from '@meshsdk/core';
 import sodium from 'libsodium-wrappers-sumo';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { motion, AnimatePresence } from 'motion/react';
 
 // Constants
 const MIN_ADA_LOVELACE = '1000000'; // 1 ADA minimum for transaction output
@@ -33,7 +42,7 @@ export default function Home() {
   const [blockfrostUrl, setBlockfrostUrl] = useState('');
   const [blockfrostApiKey, setBlockfrostApiKey] = useState('');
   const [explorerUrl, setExplorerUrl] = useState('');
-  
+
   const defaultSignifyUrl = getSignifyUrl();
 
   // Initialize network config from localStorage/cookies
@@ -135,7 +144,7 @@ export default function Home() {
     try {
       setLoading(true);
       setError('');
-      
+
       if (!blockfrostApiKey) {
         throw new Error('Please configure Blockfrost API key in network settings');
       }
@@ -229,7 +238,7 @@ export default function Home() {
         await ready();
         setIsSodiumReady(true);
       }
-      
+
       // Use CBOR metadata for hashing
       const hash = hashMetadata(cborMetadata);
       setMetadataHash(hash);
@@ -261,19 +270,19 @@ export default function Home() {
 
       // Initialize Signify client
       const client = new SignifyClient(signifyUrl, name);
-      
+
       // Connect to Signify
       await client.connect();
 
       // Create interaction event with the hash
       const interactionResult = await client.identifiers().interact(identifierName, [metadataHash]);
       console.log('Interaction event created:', interactionResult);
-      
+
       // Get the sequence number from the interaction
       const serder = interactionResult.serder;
       const sad = serder.sad;
       const seqNo = parseInt(sad.s, 16);
-      
+
       setSequenceNumber(seqNo);
       markStepCompleted(WorkflowStep.BUILD_TRANSACTION);
       setCurrentStep(WorkflowStep.BUILD_TRANSACTION);
@@ -330,14 +339,14 @@ export default function Home() {
       // Get wallet address and UTxOs
       const usedAddresses = await walletApi.getUsedAddresses();
       const changeAddress = await walletApi.getChangeAddress();
-      
+
       if (!usedAddresses || usedAddresses.length === 0) {
         throw new Error('No addresses found in wallet');
       }
 
       // Get UTxOs from wallet
       const utxos = await walletApi.getUtxos();
-      
+
       if (!utxos || utxos.length === 0) {
         throw new Error('No UTxOs available in wallet');
       }
@@ -397,7 +406,7 @@ export default function Home() {
 
       // Submit transaction
       const txHash = await walletApi.submitTx(signedTxHex);
-      
+
       setPublishedTxHash(txHash);
       markStepCompleted(WorkflowStep.COMPLETED);
       setCurrentStep(WorkflowStep.COMPLETED);
@@ -417,264 +426,496 @@ export default function Home() {
     }
   };
 
-  return (
-    <div className="container">
-      <h1>KERI Cardano Transaction Attestation</h1>
-      <p>Attest Cardano transactions with KERI using Signify</p>
+  // Copy to clipboard helper
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const copyToClipboard = async (text: string, field?: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (field) {
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+      }
+    } catch {
+      // clipboard not available
+    }
+  };
 
-      {/* Network Configuration */}
-      <NetworkConfiguration onConfigChange={handleNetworkConfigChange} />
+  return (
+    <div className="relative z-10 w-full max-w-[960px] xl:max-w-[1060px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        {/* Left: Cardano logo */}
+        <div className="flex items-center gap-2">
+          <img src="/cardano-logo-white.png" alt="Cardano" className="h-8 w-auto" />
+          <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-xs font-semibold">
+            CIP-0170
+          </Badge>
+        </div>
+
+        {/* Center: Title */}
+        <div className="text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold gradient-text tracking-tight">
+            KERI Transaction Attestation
+          </h1>
+          <p className="text-white/60 text-sm hidden sm:block">
+            Attest Cardano transactions with KERI using Signify
+          </p>
+        </div>
+
+        {/* Right: Settings */}
+        <div className="flex items-center justify-end">
+          <NetworkConfiguration onConfigChange={handleNetworkConfigChange} />
+        </div>
+      </div>
 
       {/* Critical Initialization Error */}
       {sodiumError && (
-        <div className="error" style={{border: '2px solid red', padding: '1rem', marginBottom: '1rem'}}>
-          <strong>Critical Error:</strong> {sodiumError}
-          <div style={{marginTop: '0.5rem', fontSize: '0.9em'}}>
-            The cryptographic library (libsodium) failed to initialize. 
-            This usually happens due to browser compatibility issues or WebAssembly loading failures.
-          </div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Alert className="mb-2 bg-brand-error/[0.15] border-brand-error/30">
+            <AlertDescription className="text-brand-error text-sm">
+              <strong>Critical Error:</strong> {sodiumError}
+              <p className="mt-1 text-brand-error/70 text-xs">
+                The cryptographic library (libsodium) failed to initialize.
+                This usually happens due to browser compatibility issues or WebAssembly loading failures.
+              </p>
+            </AlertDescription>
+          </Alert>
+        </motion.div>
       )}
 
       {/* Status Messages */}
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
+      <AnimatePresence mode="wait">
+        {error && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, x: [-10, 10, -10, 0] }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Alert className="mb-2 bg-brand-error/[0.12] border-brand-error/30">
+              <AlertDescription className="text-brand-error/90 text-sm">{error}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+        {success && !error && (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Alert className="mb-2 bg-brand-success/[0.12] border-brand-success/30">
+              <AlertDescription className="text-brand-success/90 text-sm">{success}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Progress Tracker */}
-      {walletConnected && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
         <ProgressTracker
           currentStep={currentStep}
           completedSteps={completedSteps}
           onStepClick={navigateToStep}
         />
-      )}
+      </motion.div>
 
-      <div className="card">
-        {/* Step 1: Connect Wallet */}
-        {currentStep === WorkflowStep.CONNECT_WALLET && (
-          <WalletConnection
-            network={network}
-            onConnect={handleWalletConnect}
-            onError={setError}
-          />
-        )}
+      {/* Main Card */}
+      <Card className="glass-card rounded-2xl p-4 sm:p-5 mb-2 overflow-hidden">
+        <AnimatePresence mode="wait">
+          {/* Step 1: Connect Wallet */}
+          {currentStep === WorkflowStep.CONNECT_WALLET && (
+            <motion.div
+              key="wallet"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+            >
+              <WalletConnection
+                network={network}
+                onConnect={handleWalletConnect}
+                onError={setError}
+              />
+            </motion.div>
+          )}
 
-        {/* Step 2: Input Transaction Hash */}
-        {currentStep === WorkflowStep.INPUT_TX_HASH && (
-          <>
-            <TransactionInput
-              txHash={txHash}
-              onTxHashChange={setTxHash}
-              onFetchMetadata={fetchTransactionMetadata}
-              loading={loading}
-            />
-            <StepNavigation onBack={handleBack} />
-          </>
-        )}
+          {/* Step 2: Input Transaction Hash */}
+          {currentStep === WorkflowStep.INPUT_TX_HASH && (
+            <motion.div
+              key="tx-input"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+            >
+              <TransactionInput
+                txHash={txHash}
+                onTxHashChange={setTxHash}
+                onFetchMetadata={fetchTransactionMetadata}
+                loading={loading}
+              />
+              <StepNavigation onBack={handleBack} />
+            </motion.div>
+          )}
 
-        {/* Step 3: Input KERI Identifier */}
-        {currentStep === WorkflowStep.INPUT_IDENTIFIER && (
-          <>
-            <IdentifierInput
-              identifierName={identifierName}
-              onIdentifierNameChange={setIdentifierName}
-              name={name}
-              onNameChange={setName}
-              signifyUrl={signifyUrl}
-              onSignifyUrlChange={setSignifyUrl}
-              onIdentifierVerified={handleIdentifierVerified}
-              onError={setError}
-              isSodiumReady={isSodiumReady}
-            />
-            <StepNavigation onBack={handleBack} />
-          </>
-        )}
+          {/* Step 3: Input KERI Identifier */}
+          {currentStep === WorkflowStep.INPUT_IDENTIFIER && (
+            <motion.div
+              key="identifier"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+            >
+              <IdentifierInput
+                identifierName={identifierName}
+                onIdentifierNameChange={setIdentifierName}
+                name={name}
+                onNameChange={setName}
+                signifyUrl={signifyUrl}
+                onSignifyUrlChange={setSignifyUrl}
+                onIdentifierVerified={handleIdentifierVerified}
+                onError={setError}
+                isSodiumReady={isSodiumReady}
+              />
+              <StepNavigation onBack={handleBack} />
+            </motion.div>
+          )}
 
-        {/* Step 4: Show Metadata and Hash */}
-        {currentStep === WorkflowStep.SHOW_METADATA && (
-          <div>
-            <div className="step-card">
-              <div className="step-icon">
-                <ChartIcon size={48} />
-              </div>
-              <h2>Transaction Metadata</h2>
-              <p className="subtitle">
-                Review the fetched metadata and its cryptographic hash
-              </p>
-              
-              <div className="form-group">
-                <label className="label">Metadata Content</label>
-                <div className="code-block">
-                  <pre>{JSON.stringify(metadata, null, 2)}</pre>
+          {/* Step 4: Show Metadata and Hash */}
+          {currentStep === WorkflowStep.SHOW_METADATA && (
+            <motion.div
+              key="metadata"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+            >
+              <div className="py-3 px-1">
+                <div className="flex justify-center mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-brand-primary/15 border border-brand-primary/30 flex items-center justify-center">
+                    <ChartIcon size={24} className="text-brand-primary" />
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-semibold text-white text-center mb-1">Transaction Metadata</h2>
+                <p className="text-white/60 text-sm text-center mb-4">
+                  Review the fetched metadata and its cryptographic hash
+                </p>
+
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-sm font-medium">Metadata Content</Label>
+                    <div className="relative group">
+                      <div className="code-display font-[var(--font-mono)] max-h-[300px] overflow-y-auto rounded-lg">
+                        <pre>{JSON.stringify(metadata, null, 2)}</pre>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(JSON.stringify(metadata, null, 2), 'metadata')}
+                        className="absolute top-2 right-2 p-1.5 rounded-md bg-white/[0.06] border border-white/[0.08] text-white/40 hover:text-white hover:bg-white/[0.12] transition-all duration-200 opacity-0 group-hover:opacity-100"
+                        title="Copy to clipboard"
+                      >
+                        {copiedField === 'metadata' ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-success">
+                            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-sm font-medium">Blake2b Hash (CESR format)</Label>
+                    <Input
+                      type="text"
+                      value={metadataHash}
+                      readOnly
+                      className="h-11 bg-black/40 border-white/[0.10] text-brand-success/80 font-mono text-sm cursor-default"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="label">Blake2b Hash (CESR format)</label>
-                <input
-                  type="text"
-                  value={metadataHash}
-                  readOnly
-                  className="input"
-                />
-              </div>
-            </div>
-            
-            <StepNavigation
-              onBack={handleBack}
-              onNext={createInteractionEvent}
-              nextLabel="Create KERI Interaction Event"
-              nextDisabled={!isSodiumReady}
-              loading={loading}
-            />
-          </div>
-        )}
+              <StepNavigation
+                onBack={handleBack}
+                onNext={createInteractionEvent}
+                nextLabel="Create KERI Interaction Event"
+                nextDisabled={!isSodiumReady}
+                loading={loading}
+              />
+            </motion.div>
+          )}
 
-        {/* Step 5: Build Transaction */}
-        {currentStep === WorkflowStep.BUILD_TRANSACTION && (
-          <div>
-            <div className="step-card">
-              <div className="step-icon">
-                <BuildIcon size={48} />
-              </div>
-              <h2>Interaction Event Created</h2>
-              <p className="subtitle">
-                Your KERI interaction event has been created successfully
-              </p>
-              
-              <div className="form-group">
-                <label className="label">Identifier</label>
-                <input
-                  type="text"
-                  value={identifier}
-                  readOnly
-                  className="input"
-                />
-              </div>
+          {/* Step 5: Build Transaction */}
+          {currentStep === WorkflowStep.BUILD_TRANSACTION && (
+            <motion.div
+              key="build"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+            >
+              <div className="py-3 px-1">
+                <div className="flex justify-center mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-brand-primary/15 border border-brand-primary/30 flex items-center justify-center">
+                    <BuildIcon size={24} className="text-brand-primary" />
+                  </div>
+                </div>
 
-              <div className="form-group">
-                <label className="label">Sequence Number</label>
-                <input
-                  type="text"
-                  value={`${sequenceNumber} (hex: ${decimalToHex(sequenceNumber)})`}
-                  readOnly
-                  className="input"
-                />
-              </div>
-            </div>
-            
-            <StepNavigation
-              onBack={handleBack}
-              onNext={buildTransaction}
-              nextLabel="Build CIP-0170 Transaction"
-              loading={loading}
-            />
-          </div>
-        )}
+                <h2 className="text-xl font-semibold text-white text-center mb-1">Interaction Event Created</h2>
+                <p className="text-white/60 text-sm text-center mb-4">
+                  Your KERI interaction event has been created successfully
+                </p>
 
-        {/* Step 6: Preview Metadata */}
-        {currentStep === WorkflowStep.PREVIEW_METADATA && (
-          <div>
-            <div className="step-card">
-              <div className="step-icon">
-                <EyeIcon size={48} />
-              </div>
-              <h2>Preview Transaction Metadata</h2>
-              <p className="subtitle">
-                Review the complete CIP-0170 compliant metadata before publishing
-              </p>
-              
-              <div style={{ fontSize: '0.95rem', marginBottom: '1.5rem', color: '#666', textAlign: 'left' }}>
-                This transaction will include:
-                <br/>• <strong>Label 170:</strong> CIP-0170 attestation data
-                <br/>• <strong>Original metadata labels:</strong> {metadata && Object.keys(metadata).join(', ')}
-              </div>
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-sm font-medium">Identifier</Label>
+                    <Input
+                      type="text"
+                      value={identifier}
+                      readOnly
+                      className="h-11 bg-black/40 border-white/[0.10] text-white/70 font-mono text-sm cursor-default"
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label className="label">Complete Metadata</label>
-                <div className="code-block">
-                  <pre>{JSON.stringify(cip170Metadata, null, 2)}</pre>
+                  <div className="space-y-2">
+                    <Label className="text-white/80 text-sm font-medium">Sequence Number</Label>
+                    <Input
+                      type="text"
+                      value={`${sequenceNumber} (hex: ${decimalToHex(sequenceNumber)})`}
+                      readOnly
+                      className="h-11 bg-black/40 border-white/[0.10] text-white/70 font-mono text-sm cursor-default"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <StepNavigation
-              onBack={handleBack}
-              onNext={publishTransaction}
-              nextLabel="Publish to Blockchain"
-              loading={loading}
-            />
-          </div>
-        )}
 
-        {/* Step 7: Completed */}
-        {currentStep === WorkflowStep.COMPLETED && (
-          <div>
-            <div className="step-card">
-              <div className="step-icon">
-                <CheckIcon size={48} />
+              <StepNavigation
+                onBack={handleBack}
+                onNext={buildTransaction}
+                nextLabel="Build CIP-0170 Transaction"
+                loading={loading}
+              />
+            </motion.div>
+          )}
+
+          {/* Step 6: Preview Metadata */}
+          {currentStep === WorkflowStep.PREVIEW_METADATA && (
+            <motion.div
+              key="preview"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30, opacity: { duration: 0.2 } }}
+            >
+              <div className="py-3 px-1">
+                <div className="flex justify-center mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-brand-primary/15 border border-brand-primary/30 flex items-center justify-center">
+                    <EyeIcon size={24} className="text-brand-primary" />
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-semibold text-white text-center mb-1">Preview Transaction Metadata</h2>
+                <p className="text-white/60 text-sm text-center mb-3">
+                  Review the complete CIP-0170 compliant metadata before publishing
+                </p>
+
+                <div className="mb-4">
+                  <p className="text-xs text-white/50 uppercase tracking-wider font-medium mb-2">Transaction includes</p>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-primary/[0.08] border border-brand-primary/20">
+                      <span className="text-brand-primary font-mono text-xs font-semibold">170</span>
+                      <span className="text-white/60 text-xs">CIP-0170 attestation</span>
+                    </div>
+                    {metadata && Object.keys(metadata).map((label) => (
+                      <div key={label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-secondary/[0.08] border border-brand-secondary/20">
+                        <span className="text-brand-secondary font-mono text-xs font-semibold">{label}</span>
+                        <span className="text-white/60 text-xs">original</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-white/80 text-sm font-medium">Complete Metadata</Label>
+                  <div className="relative group">
+                    <div className="code-display font-[var(--font-mono)] max-h-[300px] overflow-y-auto rounded-lg">
+                      <pre>{JSON.stringify(cip170Metadata, null, 2)}</pre>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(JSON.stringify(cip170Metadata, null, 2), 'cip170')}
+                      className="absolute top-2 right-2 p-1.5 rounded-md bg-white/[0.06] border border-white/[0.08] text-white/40 hover:text-white hover:bg-white/[0.12] transition-all duration-200 opacity-0 group-hover:opacity-100"
+                      title="Copy to clipboard"
+                    >
+                      {copiedField === 'cip170' ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-success">
+                          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <h2 style={{color: 'var(--success-color)', textAlign: 'center'}}>
-                Transaction Published!
-              </h2>
-              <p className="subtitle">
-                Your attestation transaction has been successfully published to the blockchain
-              </p>
-              
-              <div className="form-group">
-                <label className="label">Transaction Hash</label>
-                <input
-                  type="text"
-                  value={publishedTxHash}
-                  readOnly
-                  className="input"
-                />
+
+              <StepNavigation
+                onBack={handleBack}
+                onNext={publishTransaction}
+                nextLabel="Publish to Blockchain"
+                loading={loading}
+              />
+            </motion.div>
+          )}
+
+          {/* Step 7: Completed */}
+          {currentStep === WorkflowStep.COMPLETED && (
+            <motion.div
+              key="completed"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 25, opacity: { duration: 0.3 } }}
+            >
+              <div className="py-3 px-1 text-center">
+                {/* Celebration particles */}
+                <div className="relative flex justify-center mb-3">
+                  <motion.div
+                    className="absolute w-32 h-32 rounded-full"
+                    style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%)' }}
+                    animate={{ scale: [0, 1.5], opacity: [0.8, 0] }}
+                    transition={{ duration: 1.2, ease: 'easeOut' }}
+                  />
+                  <motion.div
+                    className="w-16 h-16 rounded-2xl bg-brand-success/15 border border-brand-success/25 flex items-center justify-center"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+                  >
+                    <CheckIcon size={32} className="text-brand-success" />
+                  </motion.div>
+                </div>
+
+                <motion.h2
+                  className="text-2xl font-bold text-brand-success mb-2"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  Transaction Published!
+                </motion.h2>
+                <motion.p
+                  className="text-white/60 text-sm mb-4 max-w-sm mx-auto"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                >
+                  Your attestation transaction has been successfully published to the blockchain
+                </motion.p>
+
+                <motion.div
+                  className="space-y-4"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <div className="space-y-2 text-left">
+                    <Label className="text-white/80 text-sm font-medium">Transaction Hash</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        value={publishedTxHash}
+                        readOnly
+                        className="h-11 bg-black/40 border-white/[0.10] text-brand-success/80 font-mono text-xs cursor-default flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => copyToClipboard(publishedTxHash)}
+                        className="h-11 w-11 shrink-0 bg-white/[0.03] border-white/[0.08] text-white/50 hover:text-white hover:bg-white/[0.06]"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                        </svg>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`${explorerUrl}/transaction/${publishedTxHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full h-11 rounded-lg border border-brand-secondary/30 text-brand-secondary text-sm font-semibold hover:bg-brand-secondary/10 transition-all duration-200 gap-2"
+                  >
+                    View on Cardano Explorer
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M15 3h6v6" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M10 14L21 3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </a>
+
+                  <Button
+                    onClick={() => {
+                      // Reset form
+                      setCurrentStep(WorkflowStep.INPUT_TX_HASH);
+                      setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET]));
+                      setTxHash('');
+                      setMetadata(null);
+                      setCborMetadata(null);
+                      setMetadataHash('');
+                      setSequenceNumber(0);
+                      setIdentifier('');
+                      setIdentifierName('');
+                      setName('');
+                      setCip170Metadata(null);
+                      setPublishedTxHash('');
+                      setError('');
+                      setSuccess('');
+                    }}
+                    className="w-full gradient-button text-white font-semibold h-11 shadow-[0_4px_20px_rgba(99,102,241,0.25)]"
+                  >
+                    Start New Attestation
+                  </Button>
+                </motion.div>
               </div>
-
-              <a
-                href={`${explorerUrl}/transaction/${publishedTxHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="button button-secondary"
-                style={{ marginBottom: '1rem', display: 'block', textDecoration: 'none' }}
-              >
-                View on Cardano Explorer →
-              </a>
-
-              <button
-                onClick={() => {
-                  // Reset form
-                  setCurrentStep(WorkflowStep.INPUT_TX_HASH);
-                  setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET]));
-                  setTxHash('');
-                  setMetadata(null);
-                  setCborMetadata(null);
-                  setMetadataHash('');
-                  setSequenceNumber(0);
-                  setIdentifier('');
-                  setIdentifierName('');
-                  setName('');
-                  setCip170Metadata(null);
-                  setPublishedTxHash('');
-                  setError('');
-                  setSuccess('');
-                }}
-                className="button button-primary"
-              >
-                Start New Attestation
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
 
       {/* Wallet Info */}
       {walletConnected && walletAddress && (
-        <WalletInfoDisplay
-          walletName={walletName}
-          address={walletAddress}
-          network={network}
-        />
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <WalletInfoDisplay
+            walletName={walletName}
+            address={walletAddress}
+            network={network}
+          />
+        </motion.div>
       )}
     </div>
   );
