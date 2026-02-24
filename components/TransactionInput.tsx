@@ -71,7 +71,7 @@ export default function TransactionInput({
       <Button
         onClick={onFetchMetadata}
         disabled={loading || !txHash || !isValidFormat}
-        className="w-full gradient-button text-white font-semibold h-12 shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_28px_rgba(99,102,241,0.35)] transition-all duration-300 hover:scale-[1.01] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
+        className="w-full gradient-button text-white font-semibold h-12 shadow-[0_4px_20px_rgba(0,132,255,0.25)] hover:shadow-[0_6px_28px_rgba(0,132,255,0.35)] transition-all duration-300 hover:scale-[1.01] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
       >
         {loading ? (
           <>

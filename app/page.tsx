@@ -457,7 +457,7 @@ export default function Home() {
           <h1 className="text-2xl sm:text-3xl font-bold gradient-text tracking-tight">
             KERI Transaction Attestation
           </h1>
-          <p className="text-white/60 text-sm hidden sm:block">
+          <p className="text-sm hidden sm:block gradient-text-brand">
             Attest Cardano transactions with KERI using Signify
           </p>
         </div>
@@ -800,7 +800,7 @@ export default function Home() {
                 <div className="relative flex justify-center mb-3">
                   <motion.div
                     className="absolute w-32 h-32 rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%)' }}
+                    style={{ background: 'radial-gradient(circle, rgba(0,190,122,0.15), transparent 70%)' }}
                     animate={{ scale: [0, 1.5], opacity: [0.8, 0] }}
                     transition={{ duration: 1.2, ease: 'easeOut' }}
                   />
@@ -892,7 +892,7 @@ export default function Home() {
                       setError('');
                       setSuccess('');
                     }}
-                    className="w-full gradient-button text-white font-semibold h-11 shadow-[0_4px_20px_rgba(99,102,241,0.25)]"
+                    className="w-full gradient-button text-white font-semibold h-11 shadow-[0_4px_20px_rgba(0,132,255,0.25)]"
                   >
                     Start New Attestation
                   </Button>
@@ -917,6 +917,16 @@ export default function Home() {
           />
         </motion.div>
       )}
+
+      {/* Footer */}
+      <footer className="mt-12 mb-4 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-2 text-white/30 text-xs">
+        <span>&copy; {new Date().getFullYear()} KERI Transaction Attestation</span>
+        <div className="flex items-center gap-4">
+          <a href="#" className="hover:text-white/60 transition-colors">Privacy Policy</a>
+          <a href="#" className="hover:text-white/60 transition-colors">Terms of Service</a>
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">GitHub</a>
+        </div>
+      </footer>
     </div>
   );
 }

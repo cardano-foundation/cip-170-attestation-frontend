@@ -2,7 +2,6 @@
 
 import { WorkflowStep } from '@/lib/types';
 import { WalletIcon, DocumentIcon, KeyIcon, ChartIcon, BuildIcon, EyeIcon, CheckIcon } from '@/components/icons';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { motion } from 'motion/react';
 
 interface StepInfo {
@@ -44,7 +43,7 @@ export default function ProgressTracker({
       <motion.div
         className="absolute top-5 left-5 h-[3px] rounded-full"
         style={{
-          background: 'linear-gradient(90deg, #6366f1, #06b6d4)',
+          background: 'linear-gradient(90deg, #0084FF, #00E0FF)',
         }}
         initial={{ width: '0%' }}
         animate={{ width: `${progress}%` }}
@@ -60,76 +59,67 @@ export default function ProgressTracker({
           const isAccessible = isPast || isCurrent;
 
           return (
-            <Tooltip key={stepInfo.step}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => isAccessible && onStepClick(stepInfo.step)}
-                  className={`flex flex-col items-center flex-1 min-w-0 transition-all duration-300 bg-transparent border-none ${
-                    isAccessible ? 'cursor-pointer' : 'cursor-default'
+            <button
+              key={stepInfo.step}
+              onClick={() => isAccessible && onStepClick(stepInfo.step)}
+              className={`flex flex-col items-center flex-1 min-w-0 transition-all duration-300 bg-transparent border-none ${
+                isAccessible ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              type="button"
+            >
+              <div className="relative">
+                {/* Active indicator glow */}
+                {isCurrent && (
+                  <motion.div
+                    layoutId="active-step-glow"
+                    className="absolute -inset-1.5 rounded-full"
+                    style={{
+                      background: 'radial-gradient(circle, rgba(0, 132, 255, 0.3), transparent 70%)',
+                    }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                  />
+                )}
+
+                {/* Circle */}
+                <motion.div
+                  className={`relative w-10 h-10 rounded-full flex items-center justify-center text-sm transition-all duration-300 ring-4 ring-[#050510] ${
+                    isCompleted && !isCurrent
+                      ? 'bg-brand-success shadow-[0_0_12px_rgba(0,190,122,0.3)]'
+                      : isCurrent
+                      ? 'bg-brand-primary shadow-[0_0_16px_rgba(0,132,255,0.4)]'
+                      : 'bg-[#12122a] border border-white/[0.12]'
                   }`}
-                  type="button"
+                  animate={isCurrent ? { scale: [1, 1.05, 1] } : { scale: 1 }}
+                  transition={isCurrent ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
                 >
-                  <div className="relative">
-                    {/* Active indicator glow */}
-                    {isCurrent && (
-                      <motion.div
-                        layoutId="active-step-glow"
-                        className="absolute -inset-1.5 rounded-full"
-                        style={{
-                          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3), transparent 70%)',
-                        }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                      />
-                    )}
+                  {isCompleted && !isCurrent ? (
+                    <CheckIcon size={16} className="text-white" />
+                  ) : (
+                    <stepInfo.icon
+                      size={16}
+                      className={
+                        isCurrent
+                          ? 'text-white'
+                          : 'text-white/40'
+                      }
+                    />
+                  )}
+                </motion.div>
+              </div>
 
-                    {/* Circle */}
-                    <motion.div
-                      className={`relative w-10 h-10 rounded-full flex items-center justify-center text-sm transition-all duration-300 ring-4 ring-[#050510] ${
-                        isCompleted && !isCurrent
-                          ? 'bg-brand-success shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                          : isCurrent
-                          ? 'bg-brand-primary shadow-[0_0_16px_rgba(99,102,241,0.4)]'
-                          : 'bg-[#12122a] border border-white/[0.12]'
-                      }`}
-                      animate={isCurrent ? { scale: [1, 1.05, 1] } : { scale: 1 }}
-                      transition={isCurrent ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
-                    >
-                      {isCompleted && !isCurrent ? (
-                        <CheckIcon size={16} className="text-white" />
-                      ) : (
-                        <stepInfo.icon
-                          size={16}
-                          className={
-                            isCurrent
-                              ? 'text-white'
-                              : 'text-white/40'
-                          }
-                        />
-                      )}
-                    </motion.div>
-                  </div>
-
-                  {/* Label - hidden on mobile */}
-                  <span
-                    className={`mt-2 text-[0.65rem] font-semibold tracking-wide hidden sm:block truncate max-w-[70px] ${
-                      isCurrent
-                        ? 'text-white'
-                        : isCompleted
-                        ? 'text-white/70'
-                        : 'text-white/30'
-                    }`}
-                  >
-                    {stepInfo.label}
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="bg-elevated border-white/10 text-white text-xs"
+              {/* Label - hidden on mobile */}
+              <span
+                className={`mt-2 text-[0.65rem] font-semibold tracking-wide hidden sm:block truncate max-w-[70px] ${
+                  isCurrent
+                    ? 'text-white'
+                    : isCompleted
+                    ? 'text-white/70'
+                    : 'text-white/30'
+                }`}
               >
                 {stepInfo.label}
-              </TooltipContent>
-            </Tooltip>
+              </span>
+            </button>
           );
         })}
       </div>

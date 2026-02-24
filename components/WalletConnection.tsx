@@ -5,7 +5,6 @@ import { WalletIcon, WarningIcon } from '@/components/icons';
 import { BrowserWallet } from '@meshsdk/core';
 import { CardanoNetwork, getNetworkMagic } from '@/lib/network-config';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface WalletConnectionProps {
@@ -98,12 +97,10 @@ export default function WalletConnection({ network, onConnect, onError }: Wallet
       </p>
 
       {/* Network warning */}
-      <Alert className="bg-brand-warning/[0.12] border-brand-warning/30 text-brand-warning mb-4 max-w-sm mx-auto text-left">
-        <WarningIcon size={16} className="shrink-0 mt-0.5" />
-        <AlertDescription className="text-sm">
-          Make sure your wallet is connected to <strong>{network.toUpperCase()}</strong>
-        </AlertDescription>
-      </Alert>
+      <div className="flex items-center gap-2 bg-brand-warning/[0.12] border border-brand-warning/30 text-brand-warning rounded-lg px-4 py-3 mb-4 mx-auto text-sm w-fit">
+        <WarningIcon size={16} className="shrink-0" />
+        <span>Make sure your wallet is connected to <strong>{network.toUpperCase()}</strong></span>
+      </div>
 
       <AnimatePresence mode="wait">
         {!showWalletList ? (
@@ -117,7 +114,7 @@ export default function WalletConnection({ network, onConnect, onError }: Wallet
             <Button
               onClick={checkWallets}
               disabled={loading}
-              className="gradient-button text-white font-semibold h-12 px-8 shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_28px_rgba(99,102,241,0.35)] transition-all duration-300 hover:scale-[1.02]"
+              className="gradient-button text-white font-semibold h-12 px-8 shadow-[0_4px_20px_rgba(0,132,255,0.25)] hover:shadow-[0_6px_28px_rgba(0,132,255,0.35)] transition-all duration-300 hover:scale-[1.02]"
             >
               {loading ? (
                 <>

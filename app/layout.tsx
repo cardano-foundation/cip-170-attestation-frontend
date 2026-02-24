@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import PlasmaBackground from "@/components/ui/PlasmaBackground";
+import BackgroundSwitcher from "@/components/ui/BackgroundSwitcher";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,7 +36,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans bg-[#050510] text-slate-100 antialiased min-h-screen`}
       >
-        <PlasmaBackground />
+        <BackgroundSwitcher />
         <Providers>
           <TooltipProvider delayDuration={300}>
             {children}

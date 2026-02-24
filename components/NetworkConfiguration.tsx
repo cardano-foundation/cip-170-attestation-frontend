@@ -261,7 +261,7 @@ export default function NetworkConfiguration({ onConfigChange }: NetworkConfigPr
               <Button
                 onClick={handleValidateAndSave}
                 disabled={isValidating || !blockfrostApiKey}
-                className="w-full gradient-button text-white font-semibold h-10 text-sm shadow-[0_4px_16px_rgba(99,102,241,0.2)] disabled:opacity-50 disabled:shadow-none"
+                className="w-full gradient-button text-white font-semibold h-10 text-sm shadow-[0_4px_16px_rgba(0,132,255,0.2)] disabled:opacity-50 disabled:shadow-none"
               >
                 {isValidating ? (
                   <>

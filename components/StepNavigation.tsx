@@ -40,7 +40,7 @@ export default function StepNavigation({
           <Button
             onClick={onNext}
             disabled={nextDisabled || loading}
-            className="gradient-button text-white font-semibold min-w-[180px] h-11 shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_28px_rgba(99,102,241,0.35)] transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100 ml-auto"
+            className="gradient-button text-white font-semibold min-w-[180px] h-11 shadow-[0_4px_20px_rgba(0,132,255,0.25)] hover:shadow-[0_6px_28px_rgba(0,132,255,0.35)] transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100 ml-auto"
           >
             {loading ? (
               <>

@@ -152,7 +152,7 @@ export default function IdentifierInput({
           {verificationStatus.verified ? (
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Badge className="bg-brand-success/20 text-brand-success border-brand-success/30 text-xs shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                <Badge className="bg-brand-success/20 text-brand-success border-brand-success/30 text-xs shadow-[0_0_8px_rgba(0,190,122,0.2)]">
                   Verified
                 </Badge>
               </div>
@@ -177,7 +177,7 @@ export default function IdentifierInput({
       <Button
         onClick={verifyIdentifier}
         disabled={loading || !identifierName || !name || !isSodiumReady}
-        className="w-full mt-4 gradient-button text-white font-semibold h-12 shadow-[0_4px_20px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_28px_rgba(99,102,241,0.35)] transition-all duration-300 hover:scale-[1.01] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
+        className="w-full mt-4 gradient-button text-white font-semibold h-12 shadow-[0_4px_20px_rgba(0,132,255,0.25)] hover:shadow-[0_6px_28px_rgba(0,132,255,0.35)] transition-all duration-300 hover:scale-[1.01] disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100"
       >
         {loading ? (
           <>

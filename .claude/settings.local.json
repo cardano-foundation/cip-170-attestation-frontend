@@ -24,7 +24,10 @@
       "WebFetch(domain:cardano.org)",
       "WebFetch(domain:brandpalettes.com)",
       "WebFetch(domain:www.designpieces.com)",
-      "WebFetch(domain:logotyp.us)"
+      "WebFetch(domain:logotyp.us)",
+      "WebFetch(domain:cardanofoundation.org)",
+      "WebFetch(domain:brandfetch.com)",
+      "Bash(head:*)"
     ]
   }
 }
