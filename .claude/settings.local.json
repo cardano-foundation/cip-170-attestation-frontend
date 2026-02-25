@@ -27,7 +27,8 @@
       "WebFetch(domain:logotyp.us)",
       "WebFetch(domain:cardanofoundation.org)",
       "WebFetch(domain:brandfetch.com)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(git:*)"
     ]
   }
 }
