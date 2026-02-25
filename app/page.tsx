@@ -447,18 +447,20 @@ export default function Home() {
         {/* Left: Cardano logo */}
         <div className="flex items-center gap-2">
           <img src="/cardano-logo-white.png" alt="Cardano" className="h-8 w-auto" />
-          <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-xs font-semibold">
-            CIP-0170
-          </Badge>
+          <a href="https://github.com/cardano-foundation/CIPs/pull/1113" target="_blank" rel="noopener noreferrer" className="cursor-pointer">
+            <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 text-xs font-semibold hover:bg-brand-primary/20 transition-colors">
+              CIP-0170
+            </Badge>
+          </a>
         </div>
 
         {/* Center: Title */}
         <div className="text-center">
           <h1 className="text-2xl sm:text-3xl font-bold gradient-text tracking-tight">
-            KERI Transaction Attestation
+            Transaction Attestation
           </h1>
           <p className="text-sm hidden sm:block gradient-text-brand">
-            Attest Cardano transactions with KERI using Signify
+            Attest Cardano transactions with KERI
           </p>
         </div>
 

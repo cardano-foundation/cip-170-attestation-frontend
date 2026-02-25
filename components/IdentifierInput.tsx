@@ -32,6 +32,7 @@ export default function IdentifierInput({
   isSodiumReady,
 }: IdentifierInputProps) {
   const [loading, setLoading] = useState(false);
+  const [showPasscode, setShowPasscode] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<{
     verified: boolean;
     identifier?: string;
@@ -114,23 +115,43 @@ export default function IdentifierInput({
             placeholder="Enter identifier name"
             className="h-10 bg-white/[0.07] border-white/[0.14] text-white placeholder:text-white/30 focus-ring"
           />
-          <p className="text-white/40 text-xs">The name of your KERI identifier in Signify</p>
+          <p className="text-white/40 text-xs">The name of your KERI identifier</p>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-white/80 text-sm font-medium">Client Name</Label>
-          <Input
-            type="text"
-            value={name}
-            onChange={(e) => onNameChange(e.target.value)}
-            placeholder="Enter name for Signify client"
-            className="h-10 bg-white/[0.07] border-white/[0.14] text-white placeholder:text-white/30 focus-ring"
-          />
-          <p className="text-white/40 text-xs">Your passcode/name for the Signify client</p>
+          <Label className="text-white/80 text-sm font-medium">Your Passcode</Label>
+          <div className="relative">
+            <Input
+              type={showPasscode ? 'text' : 'password'}
+              value={name}
+              onChange={(e) => onNameChange(e.target.value)}
+              placeholder="Enter your passcode"
+              className="h-10 bg-white/[0.07] border-white/[0.14] text-white placeholder:text-white/30 focus-ring pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPasscode(!showPasscode)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+            >
+              {showPasscode ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
+          <p className="text-white/40 text-xs">Your passcode for the KERI client</p>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-white/80 text-sm font-medium">Signify URL</Label>
+          <Label className="text-white/80 text-sm font-medium">KERI URL</Label>
           <Input
             type="text"
             value={signifyUrl}
@@ -138,7 +159,7 @@ export default function IdentifierInput({
             placeholder="http://localhost:3901"
             className="h-10 bg-white/[0.07] border-white/[0.14] text-white font-mono text-sm placeholder:text-white/30 focus-ring"
           />
-          <p className="text-white/40 text-xs">URL of your Signify service</p>
+          <p className="text-white/40 text-xs">URL of your KERI service</p>
         </div>
       </div>
 
