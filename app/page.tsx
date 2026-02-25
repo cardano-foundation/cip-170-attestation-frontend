@@ -441,7 +441,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative z-10 w-full max-w-[960px] xl:max-w-[1060px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="relative z-10 w-full max-w-[960px] xl:max-w-[1060px] mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         {/* Left: Cardano logo */}
@@ -919,7 +919,7 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="mt-12 mb-4 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-2 text-white/30 text-xs">
+      <footer className="mt-auto pt-6 mb-4 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-2 text-white/30 text-xs">
         <span>&copy; {new Date().getFullYear()} KERI Transaction Attestation</span>
         <div className="flex items-center gap-4">
           <a href="#" className="hover:text-white/60 transition-colors">Privacy Policy</a>
