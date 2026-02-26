@@ -5,20 +5,24 @@ import { encode as cborEncode, decode } from 'cbor-x';
 import { Diger } from 'signify-ts';
 
 export function hashMetadata(data: any): string {
-  console.log("Hashing metadata:", data["1447"]);
+  // Find the first available label in the CBOR metadata
+  const labels = Object.keys(data);
+  if (labels.length === 0) {
+    throw new Error("No metadata labels found");
+  }
+
+  const label = labels[0];
+  console.log("Hashing metadata label:", label, "data:", data[label]);
 
   // 1. Remove \x and convert hex → bytes
-  const hex = data["1447"].replace(/\\x/g, "");
+  const hex = data[label].replace(/\\x/g, "");
   const bytes = Uint8Array.from(
     hex.match(/.{1,2}/g)!.map((b: string) => parseInt(b, 16))
   );
 
   // 2. Strip the outer map(label → value) WITHOUT re-encoding
   // CBOR structure: a1 <label> <value>
-  // We skip:
-  //   a1           (map(1))
-  //   19 05 a7     (uint 1447)
-  // and take the remaining bytes as-is
+  // We skip the map header and the label encoding, then take the value bytes
 
   let offset = 0;
 
@@ -31,14 +35,21 @@ export function hashMetadata(data: any): string {
     throw new Error("Unexpected CBOR map header");
   }
 
-  // skip label (1447)
-  if (bytes[offset] === 0x19) {
+  // skip label - detect encoding size
+  const labelByte = bytes[offset];
+  if (labelByte <= 0x17) {
+    offset += 1; // tiny uint (0-23)
+  } else if (labelByte === 0x18) {
+    offset += 2; // uint8
+  } else if (labelByte === 0x19) {
     offset += 3; // uint16
+  } else if (labelByte === 0x1a) {
+    offset += 5; // uint32
   } else {
     throw new Error("Unexpected metadata label encoding");
   }
 
-  // 3. Remaining bytes are EXACT value bytes Java hashed
+  // 3. Remaining bytes are EXACT value bytes
   const valueBytes = bytes.slice(offset);
 
   console.log("CBOR value hex:", Buffer.from(valueBytes).toString("hex"));
