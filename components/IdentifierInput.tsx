@@ -18,6 +18,7 @@ interface IdentifierInputProps {
   onIdentifierVerified: (identifier: string) => void;
   onError: (error: string) => void;
   isSodiumReady: boolean;
+  preVerifiedIdentifier?: string;
 }
 
 export default function IdentifierInput({
@@ -30,6 +31,7 @@ export default function IdentifierInput({
   onIdentifierVerified,
   onError,
   isSodiumReady,
+  preVerifiedIdentifier,
 }: IdentifierInputProps) {
   const [loading, setLoading] = useState(false);
   const [showPasscode, setShowPasscode] = useState(false);
@@ -37,7 +39,11 @@ export default function IdentifierInput({
     verified: boolean;
     identifier?: string;
     error?: string;
-  } | null>(null);
+  } | null>(() =>
+    preVerifiedIdentifier
+      ? { verified: true, identifier: preVerifiedIdentifier }
+      : null
+  );
 
   const verifyIdentifier = async () => {
     if (!identifierName || !name) {

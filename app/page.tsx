@@ -102,6 +102,22 @@ export default function Home() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Load identifier from session storage on mount
+  useEffect(() => {
+    const stored = sessionStorage.getItem('keri_identifier');
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (data.identifierName) setIdentifierName(data.identifierName);
+        if (data.name) setName(data.name);
+        if (data.signifyUrl) setSignifyUrl(data.signifyUrl);
+        if (data.identifier) setIdentifier(data.identifier);
+      } catch {
+        // Ignore invalid session data
+      }
+    }
+  }, []);
+
   // Mark step as completed
   const markStepCompleted = (step: WorkflowStep) => {
     setCompletedSteps(prev => new Set(prev).add(step));
@@ -135,8 +151,16 @@ export default function Home() {
     setWalletName(name);
     setWalletConnected(true);
     markStepCompleted(WorkflowStep.CONNECT_WALLET);
-    setCurrentStep(WorkflowStep.INPUT_TX_HASH);
-    setSuccess('Wallet connected successfully!');
+
+    // If identifier data is already loaded from session, skip the identifier step
+    if (identifier && identifierName) {
+      markStepCompleted(WorkflowStep.INPUT_IDENTIFIER);
+      setCurrentStep(WorkflowStep.INPUT_TX_HASH);
+      setSuccess('Wallet connected! Using previously saved identifier.');
+    } else {
+      setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
+      setSuccess('Wallet connected successfully!');
+    }
   };
 
   // Fetch transaction metadata from Blockfrost
@@ -206,8 +230,17 @@ export default function Home() {
       setMetadata(jsonMetadataObj);
       setCborMetadata(cborMetadataObj);
       markStepCompleted(WorkflowStep.INPUT_TX_HASH);
-      setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
-      setSuccess('Transaction metadata fetched successfully!');
+
+      // Hash the metadata inline using the local variable (state update is async)
+      if (!isSodiumReady) {
+        await ready();
+        setIsSodiumReady(true);
+      }
+      const hash = hashMetadata(cborMetadataObj);
+      setMetadataHash(hash);
+      markStepCompleted(WorkflowStep.SHOW_METADATA);
+      setCurrentStep(WorkflowStep.SHOW_METADATA);
+      setSuccess('Transaction metadata fetched and hashed successfully!');
     } catch (err: any) {
       setError(`Failed to fetch metadata: ${err.message}`);
     } finally {
@@ -218,9 +251,20 @@ export default function Home() {
   // Handle identifier verification
   const handleIdentifierVerified = async (identifierPrefix: string) => {
     setIdentifier(identifierPrefix);
-    markStepCompleted(WorkflowStep.INPUT_IDENTIFIER);
-    // Automatically hash metadata and proceed
-    await hashAndShowMetadata();
+
+    // Persist identifier to session storage for future runs
+    sessionStorage.setItem('keri_identifier', JSON.stringify({
+      identifierName,
+      name,
+      signifyUrl,
+      identifier: identifierPrefix,
+    }));
+
+    // Mark identifier completed and clear all downstream steps
+    // (so re-verification from a later step resets the attestation flow)
+    setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET, WorkflowStep.INPUT_IDENTIFIER]));
+    setCurrentStep(WorkflowStep.INPUT_TX_HASH);
+    setSuccess('Identifier verified! Now enter the transaction hash.');
   };
 
   // Hash metadata and show to user
@@ -551,7 +595,7 @@ export default function Home() {
             </motion.div>
           )}
 
-          {/* Step 2: Input Transaction Hash */}
+          {/* Step 3: Input Transaction Hash */}
           {currentStep === WorkflowStep.INPUT_TX_HASH && (
             <motion.div
               key="tx-input"
@@ -570,7 +614,7 @@ export default function Home() {
             </motion.div>
           )}
 
-          {/* Step 3: Input KERI Identifier */}
+          {/* Step 2: Input KERI Identifier */}
           {currentStep === WorkflowStep.INPUT_IDENTIFIER && (
             <motion.div
               key="identifier"
@@ -589,6 +633,7 @@ export default function Home() {
                 onIdentifierVerified={handleIdentifierVerified}
                 onError={setError}
                 isSodiumReady={isSodiumReady}
+                preVerifiedIdentifier={identifier || undefined}
               />
               <StepNavigation onBack={handleBack} />
             </motion.div>
@@ -878,21 +923,28 @@ export default function Home() {
 
                   <Button
                     onClick={() => {
-                      // Reset form
-                      setCurrentStep(WorkflowStep.INPUT_TX_HASH);
-                      setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET]));
+                      // Reset transaction-specific state
                       setTxHash('');
                       setMetadata(null);
                       setCborMetadata(null);
                       setMetadataHash('');
                       setSequenceNumber(0);
-                      setIdentifier('');
-                      setIdentifierName('');
-                      setName('');
                       setCip170Metadata(null);
                       setPublishedTxHash('');
                       setError('');
                       setSuccess('');
+
+                      // If identifier is stored in session, skip the identifier step
+                      if (identifier && identifierName) {
+                        setCurrentStep(WorkflowStep.INPUT_TX_HASH);
+                        setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET, WorkflowStep.INPUT_IDENTIFIER]));
+                      } else {
+                        setCurrentStep(WorkflowStep.INPUT_IDENTIFIER);
+                        setCompletedSteps(new Set([WorkflowStep.CONNECT_WALLET]));
+                        setIdentifierName('');
+                        setName('');
+                        setIdentifier('');
+                      }
                     }}
                     className="w-full gradient-button text-white font-semibold h-11 shadow-[0_4px_20px_rgba(0,132,255,0.25)]"
                   >

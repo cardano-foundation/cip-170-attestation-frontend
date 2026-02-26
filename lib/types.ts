@@ -21,8 +21,8 @@ export interface AttestationData {
 
 export enum WorkflowStep {
   CONNECT_WALLET = 'connect_wallet',
-  INPUT_TX_HASH = 'input_tx_hash',
   INPUT_IDENTIFIER = 'input_identifier',
+  INPUT_TX_HASH = 'input_tx_hash',
   SHOW_METADATA = 'show_metadata',
   CREATE_INTERACTION = 'create_interaction',
   BUILD_TRANSACTION = 'build_transaction',
