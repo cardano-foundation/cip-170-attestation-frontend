@@ -12,8 +12,8 @@ interface StepInfo {
 
 const WORKFLOW_STEPS: StepInfo[] = [
   { step: WorkflowStep.CONNECT_WALLET, label: 'Connect Wallet', icon: WalletIcon },
-  { step: WorkflowStep.INPUT_TX_HASH, label: 'Transaction', icon: DocumentIcon },
   { step: WorkflowStep.INPUT_IDENTIFIER, label: 'Identifier', icon: KeyIcon },
+  { step: WorkflowStep.INPUT_TX_HASH, label: 'Transaction', icon: DocumentIcon },
   { step: WorkflowStep.SHOW_METADATA, label: 'Metadata', icon: ChartIcon },
   { step: WorkflowStep.BUILD_TRANSACTION, label: 'Build', icon: BuildIcon },
   { step: WorkflowStep.PREVIEW_METADATA, label: 'Preview', icon: EyeIcon },
@@ -56,7 +56,7 @@ export default function ProgressTracker({
           const isCompleted = completedSteps.has(stepInfo.step);
           const isCurrent = stepInfo.step === currentStep;
           const isPast = index < currentIndex;
-          const isAccessible = isPast || isCurrent;
+          const isAccessible = isPast || isCurrent || isCompleted;
 
           return (
             <button
