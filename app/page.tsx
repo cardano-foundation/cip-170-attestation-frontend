@@ -978,7 +978,7 @@ export default function Home() {
         <div className="flex items-center gap-4">
           <a href="#" className="hover:text-white/60 transition-colors">Privacy Policy</a>
           <a href="#" className="hover:text-white/60 transition-colors">Terms of Service</a>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">GitHub</a>
+          <a href="https://github.com/cardano-foundation/cip-170-attestation-frontend" target="_blank" rel="noopener noreferrer" className="hover:text-white/60 transition-colors">GitHub</a>
         </div>
       </footer>
     </div>
