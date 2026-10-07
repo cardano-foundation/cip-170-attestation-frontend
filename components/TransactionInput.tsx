@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { DocumentIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ interface TransactionInputProps {
   onTxHashChange: (value: string) => void;
   onFetchMetadata: () => void;
   loading: boolean;
+  flowSelector?: ReactNode;
 }
 
 export default function TransactionInput({
@@ -18,6 +19,7 @@ export default function TransactionInput({
   onTxHashChange,
   onFetchMetadata,
   loading,
+  flowSelector,
 }: TransactionInputProps) {
   const [isValidFormat, setIsValidFormat] = useState(true);
 
@@ -45,6 +47,8 @@ export default function TransactionInput({
       <p className="text-white/60 text-sm text-center mb-4 max-w-md mx-auto">
         Provide the Cardano transaction hash that contains the metadata you want to attest
       </p>
+
+      {flowSelector}
 
       <div className="space-y-2 mb-4">
         <Label className="text-white/80 text-sm font-medium">Transaction Hash</Label>

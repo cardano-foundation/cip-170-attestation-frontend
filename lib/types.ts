@@ -28,5 +28,12 @@ export enum WorkflowStep {
   BUILD_TRANSACTION = 'build_transaction',
   PREVIEW_METADATA = 'preview_metadata',
   PUBLISH_TRANSACTION = 'publish_transaction',
-  COMPLETED = 'completed'
+  COMPLETED = 'completed',
+  // CLAIM_TX flow (kept after COMPLETED so the ATTEST step order is unchanged)
+  CLAIM_KEYS = 'claim_keys',
+  CLAIM_SIGN = 'claim_sign',
+  CLAIM_ANCHOR = 'claim_anchor',
 }
+
+export type AttestationFlow = 'attest' | 'claim';
+export type SignerKind = 'signify' | 'veridian';

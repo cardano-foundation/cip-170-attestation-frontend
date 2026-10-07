@@ -11,9 +11,17 @@ interface WalletConnectionProps {
   network: CardanoNetwork;
   onConnect: (wallet: any, address: string, walletName: string) => void;
   onError: (error: string) => void;
+  title?: string;
+  subtitle?: string;
 }
 
-export default function WalletConnection({ network, onConnect, onError }: WalletConnectionProps) {
+export default function WalletConnection({
+  network,
+  onConnect,
+  onError,
+  title = 'Connect Your Wallet',
+  subtitle = 'Connect your Cardano wallet to begin the attestation process',
+}: WalletConnectionProps) {
   const [loading, setLoading] = useState(false);
   const [availableWallets, setAvailableWallets] = useState<any[]>([]);
   const [showWalletList, setShowWalletList] = useState(false);
@@ -91,10 +99,8 @@ export default function WalletConnection({ network, onConnect, onError }: Wallet
         </div>
       </motion.div>
 
-      <h2 className="text-xl font-semibold text-white mb-2">Connect Your Wallet</h2>
-      <p className="text-white/60 text-sm mb-4 max-w-sm mx-auto">
-        Connect your Cardano wallet to begin the attestation process
-      </p>
+      <h2 className="text-xl font-semibold text-white mb-2">{title}</h2>
+      <p className="text-white/60 text-sm mb-4 max-w-sm mx-auto">{subtitle}</p>
 
       {/* Network warning */}
       <div className="flex items-center gap-2 bg-brand-warning/[0.12] border border-brand-warning/30 text-brand-warning rounded-lg px-4 py-3 mb-4 mx-auto text-sm w-fit">

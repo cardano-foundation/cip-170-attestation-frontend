@@ -27,6 +27,25 @@ The application guides the user through the following specific steps:
     *   A copy of the original metadata labels to ensure independent verification.
 7.  **Sign & Submit**: The user signs the transaction with their local wallet, publishing the proof to the blockchain.
 
+## Signers and Attestation Types
+
+**Signer** (identifier step):
+*   **Signify agent**: your identifier on a KERIA agent, unlocked with its passcode (original flow).
+*   **Veridian wallet**: the app boots its own browser KERI agent on the KERIA of the Signify URL field (boot URL from
+    `NEXT_PUBLIC_SIGNIFY_BOOT_URL`, passcode kept in `localStorage`). Scan the app OOBI in Veridian, paste the
+    wallet OOBI back, and approve each anchoring request on the phone (`/remotesign/ixn/req`).
+
+**Attestation type** (transaction step):
+*   **Attest metadata** (`ATTEST`). With Veridian, the wallet can only anchor the SAID of a JSON object, so label 170
+    carries `d = SAID({ i, d, metadataLabel, metadataDigest })` and `v: { v: "1.1", s: "SAD" }`.
+*   **Claim transactions** (`CLAIM_TX`, CIP-170 v1.1). The app resolves the required keys of each claimed transaction,
+    builds a claim with those linking keys as `required_signers` and a ~24 h TTL, collects signatures, anchors the
+    transaction seal `SAID({ d, t: "cardano-tx-attest", n, txHash })` and submits. If a linking key is held by someone
+    else, send them the cosign link (`/cosign#…`): they sign with their CIP-30 wallet and send back a return link.
+    The pending claim is kept in `localStorage` until it is submitted or discarded.
+
+Run the unit tests with `npm test`.
+
 ## CIP-0170 Standard
 
 This application implements [CIP-0170](https://github.com/Kammerlo/CIPs/tree/feat/keri-cip/CIP-0170), a proposed standard for KERI-backed metadata attestations.

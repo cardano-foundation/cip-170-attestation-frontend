@@ -10,7 +10,7 @@ interface StepInfo {
   icon: React.ComponentType<{ className?: string; size?: number }>;
 }
 
-const WORKFLOW_STEPS: StepInfo[] = [
+export const ATTEST_STEPS: StepInfo[] = [
   { step: WorkflowStep.CONNECT_WALLET, label: 'Connect Wallet', icon: WalletIcon },
   { step: WorkflowStep.INPUT_IDENTIFIER, label: 'Identifier', icon: KeyIcon },
   { step: WorkflowStep.INPUT_TX_HASH, label: 'Transaction', icon: DocumentIcon },
@@ -20,17 +20,30 @@ const WORKFLOW_STEPS: StepInfo[] = [
   { step: WorkflowStep.COMPLETED, label: 'Complete', icon: CheckIcon },
 ];
 
+export const CLAIM_STEPS: StepInfo[] = [
+  { step: WorkflowStep.CONNECT_WALLET, label: 'Connect Wallet', icon: WalletIcon },
+  { step: WorkflowStep.INPUT_IDENTIFIER, label: 'Identifier', icon: KeyIcon },
+  { step: WorkflowStep.INPUT_TX_HASH, label: 'Transactions', icon: DocumentIcon },
+  { step: WorkflowStep.CLAIM_KEYS, label: 'Linking Keys', icon: ChartIcon },
+  { step: WorkflowStep.CLAIM_SIGN, label: 'Signatures', icon: BuildIcon },
+  { step: WorkflowStep.CLAIM_ANCHOR, label: 'Seal', icon: EyeIcon },
+  { step: WorkflowStep.COMPLETED, label: 'Complete', icon: CheckIcon },
+];
+
 interface ProgressTrackerProps {
   currentStep: WorkflowStep;
   completedSteps: Set<WorkflowStep>;
   onStepClick: (step: WorkflowStep) => void;
+  steps?: StepInfo[];
 }
 
 export default function ProgressTracker({
   currentStep,
   completedSteps,
   onStepClick,
+  steps = ATTEST_STEPS,
 }: ProgressTrackerProps) {
+  const WORKFLOW_STEPS = steps;
   const currentIndex = WORKFLOW_STEPS.findIndex(s => s.step === currentStep);
   const progress = (currentIndex / (WORKFLOW_STEPS.length - 1)) * 100;
 
