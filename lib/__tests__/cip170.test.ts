@@ -58,3 +58,54 @@ describe('metadatumDigestInTx', () => {
     expect(metadatumDigestInTx(tx, '1447')).toBeNull();
   });
 });
+
+describe('metadataSeal', () => {
+  it('matches the CIP-170 metadata seal test vector', async () => {
+    const { metadataSeal } = await import('@/lib/cip170');
+    const seal = metadataSeal(1447, 'EOpMIJmAaiP4cZgmDkg8rVtl8YU4dDYf_gxrK2sNdfOR');
+    expect(seal.said).toBe('ELaRZ34Ynl9ohjeUXQmkl9ypwEGozin-L8P43gA-IDX7');
+    expect(Object.keys(seal.sad)).toEqual(['d', 't', 'l', 'digest']);
+    expect(seal.sad.l).toBe(1447);
+    expect(metadataSeal('1447', 'EOpMIJmAaiP4cZgmDkg8rVtl8YU4dDYf_gxrK2sNdfOR').said).toBe(seal.said);
+  });
+
+  it('refuses labels it cannot serialise exactly', async () => {
+    const { metadataSeal } = await import('@/lib/cip170');
+    expect(() => metadataSeal('18446744073709551615', 'E')).toThrow(/too large/);
+    expect(() => metadataSeal('01', 'E')).toThrow();
+    expect(() => metadataSeal('x', 'E')).toThrow();
+  });
+});
+
+describe('buildCIP170Metadata version', () => {
+  it('keeps v 1.0 by default and uses 1.1 when asked', async () => {
+    const { buildCIP170Metadata } = await import('@/lib/keri-utils');
+    expect(buildCIP170Metadata(AID, 'Ed', 26, { '1447': 1 })['170']).toEqual({ t: 'ATTEST', i: AID, d: 'Ed', s: '1a', v: { v: '1.0' } });
+    expect(buildCIP170Metadata(AID, 'Ed', 26, { '1447': 1 }, '1.1')['170'].v).toEqual({ v: '1.1' });
+  });
+});
+
+describe('veridianAttestPlan', () => {
+  const DIGEST = 'EOpMIJmAaiP4cZgmDkg8rVtl8YU4dDYf_gxrK2sNdfOR';
+
+  it('attests the first label in numeric key order, as hashMetadata digests it', async () => {
+    const { veridianAttestPlan, metadataSeal } = await import('@/lib/cip170');
+    const cbor = { '1447': 'a1', '674': 'a2' };
+    const plan = veridianAttestPlan(cbor, DIGEST);
+    expect(plan.label).toBe('674');
+    expect(plan.seal.said).toBe(metadataSeal(674, DIGEST).said);
+  });
+
+  it('matches the spec vector for label 1447', async () => {
+    const { veridianAttestPlan } = await import('@/lib/cip170');
+    expect(veridianAttestPlan({ '1447': 'x' }, DIGEST).seal.said).toBe('ELaRZ34Ynl9ohjeUXQmkl9ypwEGozin-L8P43gA-IDX7');
+  });
+
+  it('refuses when label 170 would be the attested label, or nothing is there', async () => {
+    const { veridianAttestPlan, metadataSeal } = await import('@/lib/cip170');
+    expect(() => veridianAttestPlan({ '170': 'x', '1447': 'y' }, DIGEST)).toThrow(/label 170/);
+    expect(() => veridianAttestPlan({}, DIGEST)).toThrow();
+    expect(() => veridianAttestPlan(null, DIGEST)).toThrow();
+    expect(() => metadataSeal(170, DIGEST)).toThrow(/170/);
+  });
+});

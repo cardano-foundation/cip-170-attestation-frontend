@@ -10,7 +10,7 @@ import {
   getCurrentNetworkConfig,
   getNetworkMagic,
 } from '@/lib/network-config';
-import { buildClaimTxMetadata, txSeal } from '@/lib/cip170';
+import { buildClaimTxMetadata, txSeal, veridianAttestPlan } from '@/lib/cip170';
 import {
   CLAIM_TTL_SLOTS,
   buildSealedTx,
@@ -37,7 +37,7 @@ import {
   savePendingClaim,
 } from '@/lib/pending-claim';
 import { RequiredKey, WalletKeys, fetchRequiredKeys, walletKeyHashes, walletOwnsKey } from '@/lib/required-keys';
-import { PairedWallet, RemotesignError, VeridianAgent, loadPairedWallet } from '@/lib/veridian';
+import { PairedWallet, RemotesignError, RemotesignState, VeridianAgent, loadPairedWallet } from '@/lib/veridian';
 import { KeriSigner, signifySigner, veridianSigner } from '@/lib/signer';
 import { getPreviousStep, isStepCompleted } from '@/lib/workflow-state';
 import NetworkConfiguration from '@/components/NetworkConfiguration';
@@ -157,6 +157,10 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [claimPasscode, setClaimPasscode] = useState('');
   const [anchorProgress, setAnchorProgress] = useState('');
+  // Veridian ATTEST: the metadata seal anchored in the wallet's KEL (CIP-170 v1.1)
+  const [anchoredSeal, setAnchoredSeal] = useState('');
+  // in-flight Veridian request for the ATTEST anchor: a retry after the wallet replied only re-checks the KEL
+  const [attestRequest, setAttestRequest] = useState<RemotesignState | undefined>(undefined);
 
   /** Update the pending claim and persist it, so a reload or a return link can resume */
   const updatePending = useCallback((fn: (prev: PendingClaim | null) => PendingClaim | null) => {
@@ -384,6 +388,8 @@ export default function Home() {
 
       setMetadata(jsonMetadataObj);
       setCborMetadata(cborMetadataObj);
+      setAnchoredSeal(''); // an earlier anchor belongs to other metadata
+      setAttestRequest(undefined);
       markStepCompleted(WorkflowStep.INPUT_TX_HASH);
 
       // Hash the metadata inline using the local variable (state update is async)
@@ -454,8 +460,41 @@ export default function Home() {
     }
   };
 
+  // ATTEST with Veridian (CIP-170 v1.1): Veridian can only anchor SAIDs, so it anchors the metadata seal
+  // SAID({d, t:"cardano-metadata-attest", l, digest}); the record keeps d = digest and carries v "1.1".
+  const createVeridianAttestation = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      if (!veridianAgent || !pairedWallet) throw new Error('Pair your Veridian wallet first');
+      const { seal } = veridianAttestPlan(cborMetadata, metadataHash);
+      const result = await veridianAgent.remoteSign(pairedWallet, seal.sad, {
+        resume: attestRequest,
+        onRequestSent: setAttestRequest,
+        onProgress: setSuccess,
+      });
+      setAttestRequest(undefined);
+      setAnchoredSeal(seal.said);
+      setSequenceNumber(result.sn);
+      markStepCompleted(WorkflowStep.BUILD_TRANSACTION);
+      setCurrentStep(WorkflowStep.BUILD_TRANSACTION);
+      setSuccess(`Veridian anchored the metadata seal in event #${result.sn}`);
+    } catch (err: any) {
+      // once the wallet replied, keep the request so a retry re-checks instead of asking for a second approval
+      if (!(err instanceof RemotesignError && err.replied)) setAttestRequest(undefined);
+      setSuccess('');
+      setError(`Veridian signing failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Create KERI interaction event
   const createInteractionEvent = async () => {
+    if (signerKind === 'veridian') {
+      await createVeridianAttestation();
+      return;
+    }
     try {
       setLoading(true);
       setError('');
@@ -506,7 +545,9 @@ export default function Home() {
         throw new Error('Missing required data to build transaction');
       }
 
-      const cip170Meta = buildCIP170Metadata(identifier, metadataHash, sequenceNumber, metadata);
+      if (signerKind === 'veridian' && !anchoredSeal) throw new Error('The metadata seal is not anchored yet');
+      // a metadata-seal anchor requires v 1.1 (CIP-170); a raw-digest anchor keeps 1.0
+      const cip170Meta = buildCIP170Metadata(identifier, metadataHash, sequenceNumber, metadata, anchoredSeal ? '1.1' : '1.0');
 
       setCip170Metadata(cip170Meta);
       markStepCompleted(WorkflowStep.PREVIEW_METADATA);
@@ -638,8 +679,8 @@ export default function Home() {
   const changeSignerKind = (kind: SignerKind) => {
     if (kind === signerKind) return;
     setSignerKind(kind);
-    // Veridian can only anchor SAIDs, not the metadata digest ATTEST needs: it signs claims only
-    if (kind === 'veridian') setFlow('claim');
+    setAnchoredSeal('');
+    setAttestRequest(undefined);
     setIdentifier('');
     setCompletedSteps((prev) => new Set([...prev].filter((s) => s === WorkflowStep.CONNECT_WALLET)));
   };
@@ -980,6 +1021,8 @@ export default function Home() {
     setTipError('');
     setClaimPasscode('');
     setAnchorProgress('');
+    setAnchoredSeal('');
+    setAttestRequest(undefined);
     setError('');
     setWarning('');
     setCompletedSteps(new Set());
@@ -1044,9 +1087,9 @@ export default function Home() {
           title: 'Attest metadata',
           description:
             signerKind === 'veridian'
-              ? 'Not available with Veridian: it can only anchor SAIDs, not the metadata digest ATTEST requires.'
+              ? 'Sign the metadata of an existing transaction (ATTEST, anchored as a metadata seal).'
               : 'Sign the metadata of an existing transaction (ATTEST).',
-          disabled: signerKind === 'veridian',
+          badge: signerKind === 'veridian' ? 'v1.1' : undefined,
         },
         {
           value: 'claim',
@@ -1302,7 +1345,7 @@ export default function Home() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white/80 text-sm font-medium">Blake2b Hash (CESR format)</Label>
+                    <Label className="text-white/80 text-sm font-medium">Blake3-256 Digest (CESR format)</Label>
                     <Input
                       type="text"
                       value={metadataHash}
@@ -1316,7 +1359,7 @@ export default function Home() {
               <StepNavigation
                 onBack={handleBack}
                 onNext={createInteractionEvent}
-                nextLabel="Create KERI Interaction Event"
+                nextLabel={signerKind === 'veridian' ? 'Request Signature in Veridian' : 'Create KERI Interaction Event'}
                 nextDisabled={!isSodiumReady}
                 loading={loading}
               />
@@ -1364,6 +1407,22 @@ export default function Home() {
                       className="h-11 bg-black/40 border-white/[0.10] text-white/70 font-mono text-sm cursor-default"
                     />
                   </div>
+
+                  {signerKind === 'veridian' && anchoredSeal && (
+                    <div className="space-y-2">
+                      <Label className="text-white/80 text-sm font-medium">Anchored metadata seal</Label>
+                      <Input
+                        type="text"
+                        value={anchoredSeal}
+                        readOnly
+                        className="h-11 bg-black/40 border-white/[0.10] text-brand-success/80 font-mono text-sm cursor-default"
+                      />
+                      <p className="text-white/40 text-xs">
+                        Veridian anchors SAIDs only, so its KEL holds the metadata seal of the digest instead of the digest
+                        itself. The record keeps d = digest with v 1.1; verifiers recompute the seal (CIP-170 v1.1).
+                      </p>
+                    </div>
+                  )}
 
                 </div>
               </div>
@@ -1658,6 +1717,8 @@ export default function Home() {
                       setMetadataHash('');
                       setSequenceNumber(0);
                       setCip170Metadata(null);
+                      setAnchoredSeal('');
+                      setAttestRequest(undefined);
                       setPublishedTxHash('');
                       setClaimInput('');
                       setClaimed([]);

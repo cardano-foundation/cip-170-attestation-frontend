@@ -77,7 +77,9 @@ export function buildCIP170Metadata(
   identifier: string,
   digest: string,
   sequenceNumber: number,
-  originalMetadata: any
+  originalMetadata: any,
+  // "1.1" when the KEL anchor is a metadata seal (CIP-170 v1.1); Signify keeps "1.0"
+  version: '1.0' | '1.1' = '1.0'
 ): any {
   // Start with the CIP-170 attestation at label 170
   const metadata: any = {
@@ -87,7 +89,7 @@ export function buildCIP170Metadata(
       "d": digest,
       "s": decimalToHex(sequenceNumber),
       "v": {
-        "v": "1.0"
+        "v": version
       }
     }
   };

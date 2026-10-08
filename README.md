@@ -36,9 +36,11 @@ The application guides the user through the following specific steps:
     wallet OOBI back, and approve each anchoring request on the phone (`/remotesign/ixn/req`).
 
 **Attestation type** (transaction step):
-*   **Attest metadata** (`ATTEST`, Signify only). The digest of the metadata is anchored in the KEL. Veridian can only
-    anchor the SAID of a JSON object, not a raw digest, so it cannot produce an `ATTEST`; with Veridian the app offers
-    claims only. (`ATTEST_TX` is not a substitute: it attests the transaction it sits in, at creation time.)
+*   **Attest metadata** (`ATTEST`). With Signify the digest of the metadata is anchored in the KEL (`v: {v:"1.0"}`).
+    Veridian can only anchor the SAID of a JSON object, so it anchors the CIP-170 v1.1 **metadata seal**
+    `SAID({ d, t: "cardano-metadata-attest", l: <label>, digest })` instead; the record keeps `d` = digest and carries
+    `v: {v:"1.1"}`, and verifiers recompute the seal. (The remote-sign request does not yet carry the metadatum bytes the
+    spec asks for; see the plan in `docs/plans/2026-10-08-veridian-attest-metadata-seal.md`.)
 *   **Claim transactions** (`CLAIM_TX`, CIP-170 v1.1). The app resolves the required keys of each claimed transaction,
     builds a claim with those linking keys as `required_signers` and a ~24 h TTL, collects signatures, anchors the
     transaction seal `SAID({ d, t: "cardano-tx-attest", n, txHash })` and submits. If a linking key is held by someone
