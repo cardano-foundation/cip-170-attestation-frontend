@@ -1,4 +1,4 @@
-// CLAIM_TX transaction: build, collect and verify vkey witnesses, submit.
+// Sealed transactions (CLAIM_TX): build, collect and verify vkey witnesses, submit.
 // The body is frozen once built: every later step works on the witness set only and re-checks the ID.
 
 import { BlockfrostProvider, MeshTxBuilder, core } from '@meshsdk/core';
@@ -166,34 +166,45 @@ export function spendableUtxos(utxos: UTxO[]): UTxO[] {
   return spendable;
 }
 
-export interface BuildClaimTxArgs {
+export interface BuildSealedTxArgs {
   walletApi: any;
   blockfrostApiKey: string;
-  metadata170: Record<string, any>;
+  /** Full auxiliary metadata: label → value, label 170 included */
+  metadata: Record<string, any>;
   requiredSigners: string[];
   ttlSlot: number;
+  /** Tests pass an offline builder; production builds against Blockfrost */
+  builder?: MeshTxBuilder;
 }
 
 /**
- * Build the unsigned claim transaction: 1 ADA to self, required_signers, TTL and label 170.
- * Also returns the payment keys of the wallet inputs it spends, which must witness it as well.
+ * Build an unsigned transaction whose ID a KERI seal will cover: 1 ADA to self, optional required_signers, TTL and the
+ * given metadata. Also returns the payment keys of the wallet inputs it spends, which must witness it as well.
  */
-export async function buildClaimTx(
-  args: BuildClaimTxArgs
+export async function buildSealedTx(
+  args: BuildSealedTxArgs
 ): Promise<{ txHex: string; txId: string; inputKeys: string[] }> {
-  const { walletApi, blockfrostApiKey, metadata170, requiredSigners, ttlSlot } = args;
+  const { walletApi, blockfrostApiKey, metadata, requiredSigners, ttlSlot } = args;
+  if (!metadata?.['170']) throw new Error('A sealed transaction needs a label 170 record');
   const usedAddresses = await walletApi.getUsedAddresses();
   const changeAddress = await walletApi.getChangeAddress();
   const all = await walletApi.getUtxos();
   if (!all || all.length === 0) throw new Error('No UTxOs available in wallet');
   const utxos = spendableUtxos(all);
 
-  const provider = new BlockfrostProvider(blockfrostApiKey);
-  let builder = new MeshTxBuilder({ fetcher: provider, submitter: provider, evaluator: provider })
+  const base =
+    args.builder ??
+    (() => {
+      const provider = new BlockfrostProvider(blockfrostApiKey);
+      return new MeshTxBuilder({ fetcher: provider, submitter: provider, evaluator: provider });
+    })();
+  let builder = base
     .txOut(usedAddresses?.[0] || changeAddress, [{ unit: 'lovelace', quantity: SELF_OUTPUT_LOVELACE }])
     .changeAddress(changeAddress)
-    .invalidHereafter(ttlSlot)
-    .metadataValue(170, metadata170);
+    .invalidHereafter(ttlSlot);
+  for (const label of Object.keys(metadata)) {
+    builder = builder.metadataValue(Number(label), metadata[label]);
+  }
   for (const key of Array.from(new Set(requiredSigners.map((k) => k.toLowerCase())))) {
     builder = builder.requiredSignerHash(key);
   }

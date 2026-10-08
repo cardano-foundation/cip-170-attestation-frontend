@@ -7,6 +7,8 @@ export interface Choice<T extends string> {
   title: string;
   description: string;
   badge?: string;
+  /** Not selectable, e.g. not supported by the chosen signer */
+  disabled?: boolean;
 }
 
 interface SegmentedChoiceProps<T extends string> {
@@ -37,7 +39,7 @@ export default function SegmentedChoice<T extends string>({
               type="button"
               role="radio"
               aria-checked={selected}
-              disabled={disabled}
+              disabled={disabled || option.disabled}
               onClick={() => onChange(option.value)}
               className={`relative text-left rounded-xl border px-3.5 py-3 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                 selected

@@ -66,3 +66,36 @@ describe('isPendingClaim', () => {
     expect(isPendingClaim({ ...claim, txHex: 'zz' })).toBe(false);
   });
 });
+
+describe('pending kind', () => {
+  it('reads records without a kind as claims and rejects other kinds', async () => {
+    const { isPendingClaim } = await import('@/lib/pending-claim');
+    const { claimTxCbor } = await import('./fixtures');
+    const { txIdOf } = await import('@/lib/claim-tx');
+    const txHex = claimTxCbor();
+    const base = { version: 1, txId: txIdOf(txHex), txHex, network: 'preview', claimed: [], ttlSlot: 1, inputKeys: [], signerKind: 'veridian', aid: 'E' };
+    expect(isPendingClaim(base)).toBe(true);
+    expect(isPendingClaim({ ...base, kind: 'claim' })).toBe(true);
+    expect(isPendingClaim({ ...base, kind: 'attest_tx' })).toBe(false);
+  });
+});
+
+describe('newPendingTx and resumeTarget', () => {
+  it('writes records that pass the load check and resume at the right step', async () => {
+    const { isPendingClaim, newPendingTx, resumeTarget } = await import('@/lib/pending-claim');
+    const { WorkflowStep } = await import('@/lib/types');
+    const { claimTxCbor } = await import('./fixtures');
+    const { txIdOf } = await import('@/lib/claim-tx');
+    const txHex = claimTxCbor();
+    const common = { txId: txIdOf(txHex), txHex, network: 'preprod' as const, ttlSlot: 9, inputKeys: ['ab'], aid: 'E', keriaUrl: 'https://keria' };
+
+    const claim = newPendingTx({ ...common, kind: 'claim', signerKind: 'signify', identifierName: 'me' });
+    expect(isPendingClaim(claim)).toBe(true);
+    const sealed = { ...claim, seal: { said: 'Es', sn: 3 } };
+    expect(resumeTarget(sealed).step).toBe(WorkflowStep.CLAIM_ANCHOR);
+    expect(resumeTarget(sealed).completed).toContain(WorkflowStep.CLAIM_KEYS);
+
+    expect(resumeTarget(claim).step).toBe(WorkflowStep.CLAIM_SIGN);
+    expect(resumeTarget(claim).completed).not.toContain(WorkflowStep.CLAIM_SIGN);
+  });
+});

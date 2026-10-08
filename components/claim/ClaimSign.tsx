@@ -60,7 +60,7 @@ export default function ClaimSign({
 
       <h2 className="text-xl font-semibold text-white text-center mb-1">Collect Signatures</h2>
       <p className="text-white/60 text-sm text-center mb-4 max-w-md mx-auto">
-        The claim transaction is fixed. Every required signer has to sign it before the seal is anchored.
+        The claim transaction is fixed. Every required signature has to be on it before the seal is anchored.
       </p>
 
       <div className="space-y-3">

@@ -8,7 +8,7 @@ import {
   witnessIdsFromIurls,
   witnessThreshold,
 } from '@/lib/veridian';
-import { attestSadPayload, txSeal } from '@/lib/cip170';
+import { txSeal } from '@/lib/cip170';
 
 const OUR = 'EAgentAidAgentAidAgentAidAgentAidAgentAidAg1';
 const WALLET = 'EWalletAidWalletAidWalletAidWalletAidWalletA';
@@ -30,12 +30,12 @@ describe('buildRemotesignExn', () => {
   });
 
   it('has a valid envelope SAID, route and parties', () => {
-    const payload = attestSadPayload(WALLET, '1447', 'EOpMIJmAaiP4cZgmDkg8rVtl8YU4dDYf_gxrK2sNdfOR');
+    const payload = txSeal(1, TX);
     const exn = buildRemotesignExn(OUR, WALLET, payload.sad, '2026-10-07T09:00:00.000000+00:00');
     expect(exn.sad).toMatchObject({ t: 'exn', i: OUR, rp: WALLET, r: '/remotesign/ixn/req', p: '' });
     expect(new Saider({ qb64: exn.sad.d }).verify(exn.sad)).toBe(true);
-    // the ATTEST-SAD payload already leads with the wallet AID, as signify would have sent it
-    expect(Object.keys(exn.sad.a)[0]).toBe('i');
+    // never the `i` signify's exchange() would inject
+    expect(exn.sad.a).not.toHaveProperty('i');
   });
 });
 

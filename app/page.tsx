@@ -10,10 +10,10 @@ import {
   getCurrentNetworkConfig,
   getNetworkMagic,
 } from '@/lib/network-config';
-import { attestSadPayload, buildAttestSadMetadata, buildClaimTxMetadata, txSeal } from '@/lib/cip170';
+import { buildClaimTxMetadata, txSeal } from '@/lib/cip170';
 import {
   CLAIM_TTL_SLOTS,
-  buildClaimTx,
+  buildSealedTx,
   claimTxBodyInfo,
   fetchTipSlot,
   addVerifiedVkeyWitnesses,
@@ -32,6 +32,8 @@ import {
   decodeReturnFragment,
   encodeCosignLink,
   loadPendingClaim,
+  newPendingTx,
+  resumeTarget,
   savePendingClaim,
 } from '@/lib/pending-claim';
 import { RequiredKey, WalletKeys, fetchRequiredKeys, walletKeyHashes, walletOwnsKey } from '@/lib/required-keys';
@@ -141,8 +143,6 @@ export default function Home() {
   const [flow, setFlow] = useState<AttestationFlow>('attest');
   const [veridianAgent, setVeridianAgent] = useState<VeridianAgent | null>(null);
   const [pairedWallet, setPairedWallet] = useState<PairedWallet | null>(null);
-  // ATTEST via Veridian: SAID of the payload P the wallet anchored (label 170 `d` in the SAD variant)
-  const [payloadSaid, setPayloadSaid] = useState('');
 
   // CLAIM_TX state
   const [claimInput, setClaimInput] = useState('');
@@ -193,7 +193,10 @@ export default function Home() {
   // Another tab (typically the one the cosigner's return link opened) may have updated the claim
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key === PENDING_CLAIM_STORAGE_KEY) setPendingState(loadPendingClaim());
+      if (event.key !== PENDING_CLAIM_STORAGE_KEY) return;
+      const next = loadPendingClaim();
+      setPendingState(next);
+      if (next) setFlow('claim');
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
@@ -223,17 +226,18 @@ export default function Home() {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
     if (!saved) {
-      if (returned) setError('These signatures belong to a claim that was started in another browser.');
+      if (returned) setError('These signatures belong to a transaction that was started in another browser.');
       return;
     }
     const currentNetwork = getCurrentNetworkConfig().network;
     if (saved.network !== currentNetwork) {
       setError(
-        `A pending claim exists for ${saved.network.toUpperCase()}. Switch the network in settings and reload to resume it.`
+        `A pending transaction exists for ${saved.network.toUpperCase()}. Switch the network in settings and reload to resume it.`
       );
       return;
     }
 
+    const target = resumeTarget(saved);
     setFlow('claim');
     setSignerKind(saved.signerKind);
     setIdentifier(saved.aid);
@@ -244,16 +248,8 @@ export default function Home() {
     setClaimed(saved.claimed);
     setClaimInput(saved.claimed.map((c) => c.txHash).join('\n'));
     setPendingState(saved);
-    setCompletedSteps(
-      new Set([
-        WorkflowStep.CONNECT_WALLET,
-        WorkflowStep.INPUT_IDENTIFIER,
-        WorkflowStep.INPUT_TX_HASH,
-        WorkflowStep.CLAIM_KEYS,
-        ...(saved.seal ? [WorkflowStep.CLAIM_SIGN] : []),
-      ])
-    );
-    setCurrentStep(saved.seal ? WorkflowStep.CLAIM_ANCHOR : WorkflowStep.CLAIM_SIGN);
+    setCompletedSteps(new Set(target.completed));
+    setCurrentStep(target.step);
 
     if (returned) {
       const required = new Set(claimTxBodyInfo(saved.txHex).requiredSigners);
@@ -458,36 +454,8 @@ export default function Home() {
     }
   };
 
-  // ATTEST via Veridian: the wallet anchors SAID(P), P = { i, d, metadataLabel, metadataDigest }
-  const createVeridianAttestation = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      if (!veridianAgent || !pairedWallet) throw new Error('Pair your Veridian wallet first');
-      const label = Object.keys(cborMetadata ?? {})[0];
-      if (!label) throw new Error('No metadata label to attest');
-      const payload = attestSadPayload(pairedWallet.aid, label, metadataHash);
-      setSuccess('Approve the request in Veridian on your phone…');
-      const result = await veridianAgent.remoteSign(pairedWallet, payload.sad, { onProgress: setSuccess });
-      setPayloadSaid(payload.said);
-      setSequenceNumber(result.sn);
-      markStepCompleted(WorkflowStep.BUILD_TRANSACTION);
-      setCurrentStep(WorkflowStep.BUILD_TRANSACTION);
-      setSuccess(`Veridian anchored the payload in event #${result.sn}`);
-    } catch (err: any) {
-      setSuccess('');
-      setError(`Veridian signing failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Create KERI interaction event
   const createInteractionEvent = async () => {
-    if (signerKind === 'veridian') {
-      await createVeridianAttestation();
-      return;
-    }
     try {
       setLoading(true);
       setError('');
@@ -538,13 +506,7 @@ export default function Home() {
         throw new Error('Missing required data to build transaction');
       }
 
-      if (signerKind === 'veridian' && !payloadSaid) {
-        throw new Error('Missing the anchored Veridian payload');
-      }
-      const cip170Meta =
-        signerKind === 'veridian'
-          ? buildAttestSadMetadata(identifier, payloadSaid, sequenceNumber, metadata)
-          : buildCIP170Metadata(identifier, metadataHash, sequenceNumber, metadata);
+      const cip170Meta = buildCIP170Metadata(identifier, metadataHash, sequenceNumber, metadata);
 
       setCip170Metadata(cip170Meta);
       markStepCompleted(WorkflowStep.PREVIEW_METADATA);
@@ -676,8 +638,9 @@ export default function Home() {
   const changeSignerKind = (kind: SignerKind) => {
     if (kind === signerKind) return;
     setSignerKind(kind);
+    // Veridian can only anchor SAIDs, not the metadata digest ATTEST needs: it signs claims only
+    if (kind === 'veridian') setFlow('claim');
     setIdentifier('');
-    setPayloadSaid('');
     setCompletedSteps((prev) => new Set([...prev].filter((s) => s === WorkflowStep.CONNECT_WALLET)));
   };
 
@@ -752,26 +715,29 @@ export default function Home() {
       const tip = await fetchTipSlot(blockfrostUrl, blockfrostApiKey);
       const ttlSlot = tip + CLAIM_TTL_SLOTS;
       const metadata = buildClaimTxMetadata(identifier, claimed.map((c) => c.txHash));
-      const { txHex, txId, inputKeys } = await buildClaimTx({
+      const { txHex, txId, inputKeys } = await buildSealedTx({
         walletApi,
         blockfrostApiKey,
-        metadata170: metadata['170'],
+        metadata,
         requiredSigners: claimed.map((c) => c.linkingKey),
         ttlSlot,
       });
       setTipSlot(tip);
-      updatePending(() => ({
-        version: 1,
-        txId,
-        txHex,
-        network,
-        claimed,
-        ttlSlot,
-        inputKeys,
-        signerKind,
-        aid: identifier,
-        signify: { identifierName: signerKind === 'signify' ? identifierName : '', url: signifyUrl },
-      }));
+      updatePending(() =>
+        newPendingTx({
+          kind: 'claim',
+          txId,
+          txHex,
+          network,
+          claimed,
+          ttlSlot,
+          inputKeys,
+          signerKind,
+          aid: identifier,
+          keriaUrl: signifyUrl,
+          identifierName: signerKind === 'signify' ? identifierName : '',
+        })
+      );
       markStepCompleted(WorkflowStep.CLAIM_KEYS);
       setCurrentStep(WorkflowStep.CLAIM_SIGN);
       setSuccess(`Claim transaction built: ${txId.slice(0, 16)}…`);
@@ -924,7 +890,7 @@ export default function Home() {
       });
       updatePending((prev) => (prev ? { ...prev, seal: { said: seal.said, sn: result.sn }, remotesign: undefined } : prev));
       markStepCompleted(WorkflowStep.CLAIM_SIGN);
-      setSuccess(`Transaction seal anchored in event #${result.sn}. You can now publish the claim.`);
+      setSuccess(`Transaction seal anchored in event #${result.sn}. You can now publish the transaction.`);
     } catch (err: any) {
       // Once the wallet has replied, a retry only re-checks its KEL. Otherwise a fresh click sends a new
       // request, and a late approval of the old one is ignored.
@@ -963,17 +929,19 @@ export default function Home() {
       setCurrentStep(WorkflowStep.COMPLETED);
       setSuccess('Claim transaction published successfully!');
     } catch (err: any) {
-      setError(`Failed to publish the claim: ${err.message}`);
+      setError(`Failed to publish the transaction: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
   const discardClaim = () => {
+    const back = WorkflowStep.CLAIM_KEYS;
     updatePending(() => null);
-    setCompletedSteps((prev) => new Set([...prev].filter((s) => s !== WorkflowStep.CLAIM_KEYS && s !== WorkflowStep.CLAIM_SIGN)));
-    setCurrentStep(WorkflowStep.CLAIM_KEYS);
-    setSuccess('Pending claim discarded.');
+    const undone = new Set([back, WorkflowStep.CLAIM_SIGN]);
+    setCompletedSteps((prev) => new Set([...prev].filter((s) => !undone.has(s))));
+    setCurrentStep(back);
+    setSuccess('Pending transaction discarded.');
   };
 
   // Start over: forget everything about the current run. The Veridian agent passcode and wallet pairing are this
@@ -1005,7 +973,6 @@ export default function Home() {
     setFlow('attest');
     setVeridianAgent(null);
     setPairedWallet(null);
-    setPayloadSaid('');
     setClaimInput('');
     setClaimed([]);
     setClaimWarnings({});
@@ -1021,10 +988,11 @@ export default function Home() {
   };
 
   // Handle going back
-  const claimOrder = CLAIM_STEPS.map((s) => s.step);
+  const sealedFlowSteps = flow === 'claim' ? CLAIM_STEPS : null;
   const handleBack = () => {
-    if (flow === 'claim' && claimOrder.includes(currentStep)) {
-      const previous = claimOrder[claimOrder.indexOf(currentStep) - 1];
+    const order = sealedFlowSteps?.map((s) => s.step) ?? [];
+    if (order.includes(currentStep)) {
+      const previous = order[order.indexOf(currentStep) - 1];
       if (previous) navigateToStep(previous);
       return;
     }
@@ -1053,6 +1021,7 @@ export default function Home() {
       label="Signer"
       value={signerKind}
       onChange={changeSignerKind}
+      disabled={!!pending}
       options={[
         { value: 'signify', title: 'Signify agent', description: 'Your identifier on a KERIA agent, unlocked with its passcode.' },
         { value: 'veridian', title: 'Veridian wallet', description: 'Approve every anchor on your phone.', badge: 'mobile' },
@@ -1064,6 +1033,7 @@ export default function Home() {
     <SegmentedChoice<AttestationFlow>
       label="Attestation type"
       value={flow}
+      disabled={!!pending}
       onChange={(next) => {
         setFlow(next);
         setError('');
@@ -1072,8 +1042,11 @@ export default function Home() {
         {
           value: 'attest',
           title: 'Attest metadata',
-          description: 'Sign the metadata of an existing transaction (ATTEST).',
-          badge: signerKind === 'veridian' ? 'SAD variant' : undefined,
+          description:
+            signerKind === 'veridian'
+              ? 'Not available with Veridian: it can only anchor SAIDs, not the metadata digest ATTEST requires.'
+              : 'Sign the metadata of an existing transaction (ATTEST).',
+          disabled: signerKind === 'veridian',
         },
         {
           value: 'claim',
@@ -1114,7 +1087,7 @@ export default function Home() {
           <ResetButton
             onReset={resetAll}
             disabled={loading || anchoring || submitting || claimBusy}
-            warning={pending ? 'A built claim transaction and its signatures will be discarded' : undefined}
+            warning={pending ? 'A built transaction and its signatures will be discarded' : undefined}
           />
           <NetworkConfiguration onConfigChange={handleNetworkConfigChange} />
         </div>
@@ -1191,7 +1164,7 @@ export default function Home() {
           currentStep={currentStep}
           completedSteps={completedSteps}
           onStepClick={navigateToStep}
-          steps={flow === 'claim' ? CLAIM_STEPS : ATTEST_STEPS}
+          steps={sealedFlowSteps ?? ATTEST_STEPS}
         />
       </motion.div>
 
@@ -1343,7 +1316,7 @@ export default function Home() {
               <StepNavigation
                 onBack={handleBack}
                 onNext={createInteractionEvent}
-                nextLabel={signerKind === 'veridian' ? 'Request Signature in Veridian' : 'Create KERI Interaction Event'}
+                nextLabel="Create KERI Interaction Event"
                 nextDisabled={!isSodiumReady}
                 loading={loading}
               />
@@ -1392,20 +1365,6 @@ export default function Home() {
                     />
                   </div>
 
-                  {signerKind === 'veridian' && (
-                    <div className="space-y-2">
-                      <Label className="text-white/80 text-sm font-medium">Anchored payload SAID (label 170 d)</Label>
-                      <Input
-                        type="text"
-                        value={payloadSaid}
-                        readOnly
-                        className="h-11 bg-black/40 border-white/[0.10] text-brand-success/80 font-mono text-sm cursor-default"
-                      />
-                      <p className="text-white/40 text-xs">
-                        Veridian anchors SAIDs only, so d = SAID of {'{'} i, d, metadataLabel, metadataDigest {'}'} (SAD variant, v 1.1).
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1446,12 +1405,6 @@ export default function Home() {
                       <span className="text-brand-primary font-mono text-xs font-semibold">170</span>
                       <span className="text-white/60 text-xs">CIP-0170 attestation</span>
                     </div>
-                    {signerKind === 'veridian' && (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-accent/[0.08] border border-brand-accent/25">
-                        <span className="text-brand-accent font-mono text-xs font-semibold">SAD</span>
-                        <span className="text-white/60 text-xs">d is the SAID of the wallet payload</span>
-                      </div>
-                    )}
                     {metadata && Object.keys(metadata).map((label) => (
                       <div key={label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-secondary/[0.08] border border-brand-secondary/20">
                         <span className="text-brand-secondary font-mono text-xs font-semibold">{label}</span>
@@ -1563,7 +1516,7 @@ export default function Home() {
                 onClick={discardClaim}
                 className="mt-2 text-xs text-white/40 hover:text-brand-error/80 transition-colors"
               >
-                Discard this claim transaction
+                Discard this transaction
               </button>
               <StepNavigation
                 onBack={handleBack}
@@ -1706,7 +1659,6 @@ export default function Home() {
                       setSequenceNumber(0);
                       setCip170Metadata(null);
                       setPublishedTxHash('');
-                      setPayloadSaid('');
                       setClaimInput('');
                       setClaimed([]);
                       setClaimWarnings({});

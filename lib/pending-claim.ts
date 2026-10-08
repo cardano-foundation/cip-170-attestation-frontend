@@ -2,6 +2,7 @@
 // Links carry data in the URL fragment, which browsers never send to a server.
 
 import type { CardanoNetwork } from './network-config';
+import { WorkflowStep } from './types';
 import type { SignerKind } from './types';
 import type { RequiredKey } from './required-keys';
 import type { RemotesignState } from './veridian';
@@ -14,8 +15,13 @@ export interface ClaimedTx {
   linkingKey: string;
 }
 
+/** What the pending transaction carries in label 170 (only CLAIM_TX today) */
+export type SealedTxKind = 'claim';
+
 export interface PendingClaim {
   version: 1;
+  /** Absent in older records: those are claims too */
+  kind?: SealedTxKind;
   txId: string;
   txHex: string;
   network: CardanoNetwork;
@@ -41,7 +47,7 @@ export function loadPendingClaim(): PendingClaim | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (isPendingClaim(parsed)) return parsed;
+    if (isPendingClaim(parsed)) return { ...parsed, kind: parsed.kind ?? 'claim' };
     clearPendingClaim(); // unreadable or from an older build: never let it break the page
     return null;
   } catch {
@@ -60,6 +66,7 @@ export function isPendingClaim(value: any): value is PendingClaim {
       typeof value.ttlSlot === 'number' &&
       typeof value.aid === 'string' &&
       (value.signerKind === 'signify' || value.signerKind === 'veridian') &&
+      (value.kind === undefined || value.kind === 'claim') &&
       Array.isArray(value.inputKeys) &&
       Array.isArray(value.claimed) &&
       txIdOf(value.txHex) === value.txId
@@ -70,6 +77,50 @@ export function isPendingClaim(value: any): value is PendingClaim {
 }
 
 export const PENDING_CLAIM_STORAGE_KEY = STORAGE_KEY;
+
+/** The one place that shapes a stored pending tx, so what the page writes always passes isPendingClaim */
+export function newPendingTx(args: {
+  kind: SealedTxKind;
+  txId: string;
+  txHex: string;
+  network: CardanoNetwork;
+  claimed?: ClaimedTx[];
+  ttlSlot: number;
+  inputKeys: string[];
+  signerKind: SignerKind;
+  aid: string;
+  keriaUrl: string;
+  identifierName?: string;
+}): PendingClaim {
+  return {
+    version: 1,
+    kind: args.kind,
+    txId: args.txId,
+    txHex: args.txHex,
+    network: args.network,
+    claimed: args.claimed ?? [],
+    ttlSlot: args.ttlSlot,
+    inputKeys: args.inputKeys,
+    signerKind: args.signerKind,
+    aid: args.aid,
+    // the KERIA URL also selects the Veridian agent and pairing on resume
+    signify: { identifierName: args.identifierName ?? '', url: args.keriaUrl },
+  };
+}
+
+/** Where a stored pending claim resumes: the step to show, and which earlier steps count as done */
+export function resumeTarget(saved: PendingClaim): { step: WorkflowStep; completed: WorkflowStep[] } {
+  return {
+    step: saved.seal ? WorkflowStep.CLAIM_ANCHOR : WorkflowStep.CLAIM_SIGN,
+    completed: [
+      WorkflowStep.CONNECT_WALLET,
+      WorkflowStep.INPUT_IDENTIFIER,
+      WorkflowStep.INPUT_TX_HASH,
+      WorkflowStep.CLAIM_KEYS,
+      ...(saved.seal ? [WorkflowStep.CLAIM_SIGN] : []),
+    ],
+  };
+}
 
 export function savePendingClaim(claim: PendingClaim): void {
   try {

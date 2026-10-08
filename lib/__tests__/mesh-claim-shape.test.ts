@@ -26,3 +26,31 @@ describe('a claim tx built by Mesh', () => {
     expect(check.record?.r).toEqual(['bb'.repeat(32)]);
   });
 });
+
+describe('buildSealedTx', () => {
+  const stubWallet = {
+    getUsedAddresses: async () => [baseAddress],
+    getChangeAddress: async () => baseAddress,
+    getUtxos: async () => [
+      { input: { txHash: 'aa'.repeat(32), outputIndex: 0 }, output: { address: baseAddress, amount: [{ unit: 'lovelace', quantity: '10000000' }] } },
+    ],
+  };
+
+  it('puts the linking keys of a claim into required_signers', async () => {
+    const { buildSealedTx, claimTxBodyInfo } = await import('@/lib/claim-tx');
+    const { buildClaimTxMetadata } = await import('@/lib/cip170');
+    const { txHex } = await buildSealedTx({
+      walletApi: stubWallet,
+      blockfrostApiKey: '',
+      metadata: buildClaimTxMetadata('EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4', ['bb'.repeat(32)]),
+      requiredSigners: [SIGNER_KEY],
+      ttlSlot: 5000,
+      builder: new MeshTxBuilder(),
+    });
+    expect(claimTxBodyInfo(txHex).requiredSigners).toEqual([SIGNER_KEY]);
+    expect(claimTxBodyInfo(txHex).ttl).toBe(5000);
+    const { txMetadataAsJs } = await import('@/lib/claim-gates');
+    expect(txMetadataAsJs(txHex)['170'].t).toBe('CLAIM_TX');
+    expect(Object.keys(txMetadataAsJs(txHex))).toEqual(['170']);
+  });
+});

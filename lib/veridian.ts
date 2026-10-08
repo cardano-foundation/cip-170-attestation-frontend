@@ -429,7 +429,7 @@ export class VeridianAgent {
       state = { requestSaid: exn.sad.d, said, floor };
       opts.onRequestSent?.(state);
       await this.client.exchanges().sendFromEvents(AGENT_IDENTIFIER_NAME, 'remotesign', exn, sigs, '', [wallet.aid]);
-      console.info('[veridian] request sent', { requestSaid: state.requestSaid, payloadSaid: said, floor: state.floor, from: this.aid, to: wallet.aid });
+      console.info('[veridian] request sent', { requestSaid: state.requestSaid, anchoredSaid: said, floor: state.floor, from: this.aid, to: wallet.aid });
     }
 
     opts.onProgress?.('Request sent. Approve it in Veridian on your phone…');

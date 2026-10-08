@@ -1,11 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ready, Saider } from 'signify-ts';
-import {
-  attestSadPayload,
-  buildAttestSadMetadata,
-  buildClaimTxMetadata,
-  txSeal,
-} from '@/lib/cip170';
+import { ready } from 'signify-ts';
+import { buildClaimTxMetadata, txSeal } from '@/lib/cip170';
 
 const SPEC_TX = '4b1c6f3e3c0a6c5e2f9d7a8b1e0c4d5f6a7b8c9d0e1f2a3b4c5d6e7f8091a2b3';
 const AID = 'EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4';
@@ -30,28 +25,6 @@ describe('txSeal', () => {
   it('rejects uppercase or short transaction IDs', () => {
     expect(() => txSeal(1, SPEC_TX.toUpperCase())).toThrow();
     expect(() => txSeal(1, SPEC_TX.slice(2))).toThrow();
-  });
-});
-
-describe('attestSadPayload', () => {
-  it('saidifies { i, d, metadataLabel, metadataDigest } in that order', () => {
-    const { said, sad } = attestSadPayload(AID, '1447', 'EOpMIJmAaiP4cZgmDkg8rVtl8YU4dDYf_gxrK2sNdfOR');
-    expect(Object.keys(sad)).toEqual(['i', 'd', 'metadataLabel', 'metadataDigest']);
-    expect(sad.d).toBe(said);
-    expect(said).toHaveLength(44);
-    expect(new Saider({ qb64: said }).verify(sad)).toBe(true);
-  });
-
-  it('rejects a non-decimal label', () => {
-    expect(() => attestSadPayload(AID, 'x1', 'E')).toThrow();
-  });
-});
-
-describe('buildAttestSadMetadata', () => {
-  it('marks the SAD variant and keeps original labels except 170', () => {
-    const meta = buildAttestSadMetadata(AID, 'Esaid', 26, { '1447': { a: 1 }, '170': { t: 'X' } });
-    expect(meta['170']).toEqual({ t: 'ATTEST', i: AID, d: 'Esaid', s: '1a', v: { v: '1.1', s: 'SAD' } });
-    expect(meta['1447']).toEqual({ a: 1 });
   });
 });
 

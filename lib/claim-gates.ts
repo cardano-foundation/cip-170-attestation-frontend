@@ -71,6 +71,14 @@ export function metadatumToJs(value: any): any {
   return value;
 }
 
+/** All metadata labels of a transaction as plain values, exactly as they will go on chain */
+export function txMetadataAsJs(txHex: string): Record<string, any> {
+  const blob = Serialization.Transaction.fromCbor(txHex as any).auxiliaryData()?.toCore().blob;
+  const out: Record<string, any> = {};
+  for (const [label, value] of blob?.entries() ?? []) out[label.toString()] = metadatumToJs(value);
+  return out;
+}
+
 function versionAtLeast(version: unknown, major: number, minor: number): boolean {
   if (typeof version !== 'string' || !/^\d+\.\d+$/.test(version)) return false;
   const [a, b] = version.split('.').map(Number);
