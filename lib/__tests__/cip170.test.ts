@@ -109,3 +109,21 @@ describe('veridianAttestPlan', () => {
     expect(() => metadataSeal(170, DIGEST)).toThrow(/170/);
   });
 });
+
+describe('attestRecordAnchor', () => {
+  const anchor = { said: 'Eseal', aid: 'Ewallet', digest: 'Edigest', sn: 7 };
+  const base = { identifier: 'Ewallet', digest: 'Edigest', sequenceNumber: 3 };
+
+  it('keeps Signify at v1.0 with its own sequence number, even if a Veridian anchor is lying around', async () => {
+    const { attestRecordAnchor } = await import('@/lib/cip170');
+    expect(attestRecordAnchor({ ...base, signerKind: 'signify', veridianAnchor: anchor })).toEqual({ version: '1.0', sn: 3 });
+  });
+
+  it('uses v1.1 and the anchor sn only for the wallet and digest the anchor was made for', async () => {
+    const { attestRecordAnchor } = await import('@/lib/cip170');
+    expect(attestRecordAnchor({ ...base, signerKind: 'veridian', veridianAnchor: anchor })).toEqual({ version: '1.1', sn: 7 });
+    expect(() => attestRecordAnchor({ ...base, identifier: 'Eother', signerKind: 'veridian', veridianAnchor: anchor })).toThrow(/another identifier/);
+    expect(() => attestRecordAnchor({ ...base, digest: 'Enew', signerKind: 'veridian', veridianAnchor: anchor })).toThrow(/other metadata/);
+    expect(() => attestRecordAnchor({ ...base, signerKind: 'veridian', veridianAnchor: null })).toThrow(/not anchored/);
+  });
+});

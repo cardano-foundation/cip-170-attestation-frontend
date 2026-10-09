@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SignifyClient, ready } from 'signify-ts';
 import { hashMetadata, buildCIP170Metadata, decimalToHex, metadatumDigestInTx } from '@/lib/keri-utils';
 import { WorkflowStep, TransactionMetadata, AttestationFlow, SignerKind } from '@/lib/types';
@@ -10,7 +10,7 @@ import {
   getCurrentNetworkConfig,
   getNetworkMagic,
 } from '@/lib/network-config';
-import { buildClaimTxMetadata, txSeal, veridianAttestPlan } from '@/lib/cip170';
+import { VeridianAnchor, attestRecordAnchor, buildClaimTxMetadata, txSeal, veridianAttestPlan } from '@/lib/cip170';
 import {
   CLAIM_TTL_SLOTS,
   buildSealedTx,
@@ -158,7 +158,14 @@ export default function Home() {
   const [claimPasscode, setClaimPasscode] = useState('');
   const [anchorProgress, setAnchorProgress] = useState('');
   // Veridian ATTEST: the metadata seal anchored in the wallet's KEL (CIP-170 v1.1)
-  const [anchoredSeal, setAnchoredSeal] = useState('');
+  const [veridianAnchor, setVeridianAnchor] = useState<VeridianAnchor | null>(null);
+  // bumped whenever the signer, pairing, metadata or run changes: a Veridian reply that arrives later is discarded
+  const anchorGeneration = useRef(0);
+  const invalidateAnchor = () => {
+    anchorGeneration.current += 1;
+    setVeridianAnchor(null);
+    setAttestRequest(undefined);
+  };
   // in-flight Veridian request for the ATTEST anchor: a retry after the wallet replied only re-checks the KEL
   const [attestRequest, setAttestRequest] = useState<RemotesignState | undefined>(undefined);
 
@@ -388,8 +395,7 @@ export default function Home() {
 
       setMetadata(jsonMetadataObj);
       setCborMetadata(cborMetadataObj);
-      setAnchoredSeal(''); // an earlier anchor belongs to other metadata
-      setAttestRequest(undefined);
+      invalidateAnchor(); // an earlier anchor belongs to other metadata
       markStepCompleted(WorkflowStep.INPUT_TX_HASH);
 
       // Hash the metadata inline using the local variable (state update is async)
@@ -468,13 +474,21 @@ export default function Home() {
       setError('');
       if (!veridianAgent || !pairedWallet) throw new Error('Pair your Veridian wallet first');
       const { seal } = veridianAttestPlan(cborMetadata, metadataHash);
-      const result = await veridianAgent.remoteSign(pairedWallet, seal.sad, {
+      const generation = anchorGeneration.current;
+      const wallet = pairedWallet;
+      const digest = metadataHash;
+      const current = () => generation === anchorGeneration.current;
+      const result = await veridianAgent.remoteSign(wallet, seal.sad, {
         resume: attestRequest,
-        onRequestSent: setAttestRequest,
-        onProgress: setSuccess,
+        onRequestSent: (state) => current() && setAttestRequest(state),
+        onProgress: (message) => current() && setSuccess(message),
       });
+      if (!current()) {
+        console.info('[veridian] discarding an anchor for a signer, pairing or metadata that has changed meanwhile');
+        return;
+      }
       setAttestRequest(undefined);
-      setAnchoredSeal(seal.said);
+      setVeridianAnchor({ said: seal.said, aid: wallet.aid, digest, sn: result.sn });
       setSequenceNumber(result.sn);
       markStepCompleted(WorkflowStep.BUILD_TRANSACTION);
       setCurrentStep(WorkflowStep.BUILD_TRANSACTION);
@@ -545,9 +559,9 @@ export default function Home() {
         throw new Error('Missing required data to build transaction');
       }
 
-      if (signerKind === 'veridian' && !anchoredSeal) throw new Error('The metadata seal is not anchored yet');
-      // a metadata-seal anchor requires v 1.1 (CIP-170); a raw-digest anchor keeps 1.0
-      const cip170Meta = buildCIP170Metadata(identifier, metadataHash, sequenceNumber, metadata, anchoredSeal ? '1.1' : '1.0');
+      // a metadata-seal anchor requires v 1.1 (CIP-170) and only counts for the wallet and digest it was made for
+      const { version, sn } = attestRecordAnchor({ signerKind, identifier, digest: metadataHash, sequenceNumber, veridianAnchor });
+      const cip170Meta = buildCIP170Metadata(identifier, metadataHash, sn, metadata, version);
 
       setCip170Metadata(cip170Meta);
       markStepCompleted(WorkflowStep.PREVIEW_METADATA);
@@ -679,13 +693,13 @@ export default function Home() {
   const changeSignerKind = (kind: SignerKind) => {
     if (kind === signerKind) return;
     setSignerKind(kind);
-    setAnchoredSeal('');
-    setAttestRequest(undefined);
+    invalidateAnchor();
     setIdentifier('');
     setCompletedSteps((prev) => new Set([...prev].filter((s) => s === WorkflowStep.CONNECT_WALLET)));
   };
 
   const handleVeridianPaired = async (agent: VeridianAgent, wallet: PairedWallet) => {
+    invalidateAnchor();
     setVeridianAgent(agent);
     setPairedWallet(wallet);
     setIdentifier(wallet.aid);
@@ -1021,8 +1035,7 @@ export default function Home() {
     setTipError('');
     setClaimPasscode('');
     setAnchorProgress('');
-    setAnchoredSeal('');
-    setAttestRequest(undefined);
+    invalidateAnchor();
     setError('');
     setWarning('');
     setCompletedSteps(new Set());
@@ -1064,7 +1077,7 @@ export default function Home() {
       label="Signer"
       value={signerKind}
       onChange={changeSignerKind}
-      disabled={!!pending}
+      disabled={!!pending || loading}
       options={[
         { value: 'signify', title: 'Signify agent', description: 'Your identifier on a KERIA agent, unlocked with its passcode.' },
         { value: 'veridian', title: 'Veridian wallet', description: 'Approve every anchor on your phone.', badge: 'mobile' },
@@ -1408,12 +1421,12 @@ export default function Home() {
                     />
                   </div>
 
-                  {signerKind === 'veridian' && anchoredSeal && (
+                  {signerKind === 'veridian' && veridianAnchor && (
                     <div className="space-y-2">
                       <Label className="text-white/80 text-sm font-medium">Anchored metadata seal</Label>
                       <Input
                         type="text"
-                        value={anchoredSeal}
+                        value={veridianAnchor.said}
                         readOnly
                         className="h-11 bg-black/40 border-white/[0.10] text-brand-success/80 font-mono text-sm cursor-default"
                       />
@@ -1717,8 +1730,7 @@ export default function Home() {
                       setMetadataHash('');
                       setSequenceNumber(0);
                       setCip170Metadata(null);
-                      setAnchoredSeal('');
-                      setAttestRequest(undefined);
+                      invalidateAnchor();
                       setPublishedTxHash('');
                       setClaimInput('');
                       setClaimed([]);

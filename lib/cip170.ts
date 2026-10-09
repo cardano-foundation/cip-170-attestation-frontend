@@ -62,6 +62,34 @@ export function veridianAttestPlan(cborMetadata: Record<string, unknown> | null,
   return { label, seal: metadataSeal(label, digest) };
 }
 
+/** A metadata-seal anchor made by a Veridian wallet, bound to the identity and digest it was made for */
+export interface VeridianAnchor {
+  said: string;
+  aid: string;
+  digest: string;
+  sn: number;
+}
+
+/**
+ * Version and sequence number for an ATTEST record. A Veridian anchor counts only for the Veridian signer that made it
+ * and the digest it sealed; then the record is v1.1 with the anchor's own sn. Otherwise it is the raw-digest v1.0 form.
+ */
+export function attestRecordAnchor(args: {
+  signerKind: 'signify' | 'veridian';
+  identifier: string;
+  digest: string;
+  sequenceNumber: number;
+  veridianAnchor: VeridianAnchor | null;
+}): { version: '1.0' | '1.1'; sn: number } {
+  if (args.signerKind === 'signify') return { version: '1.0', sn: args.sequenceNumber };
+  const anchor = args.veridianAnchor;
+  if (!anchor) throw new Error('The metadata seal is not anchored yet');
+  if (anchor.aid !== args.identifier || anchor.digest !== args.digest) {
+    throw new Error('The anchored metadata seal belongs to another identifier or other metadata; request it again');
+  }
+  return { version: '1.1', sn: anchor.sn };
+}
+
 /**
  * CLAIM_TX record. `s` is omitted on purpose: the anchoring event is created after the
  * transaction ID is fixed, and `s` would be part of the auxiliary data that the ID covers.
