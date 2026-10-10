@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import { SignifyClient, ready } from 'signify-ts';
 import { KeyIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ interface IdentifierInputProps {
   onError: (error: string) => void;
   isSodiumReady: boolean;
   preVerifiedIdentifier?: string;
+  modeSelector?: ReactNode;
 }
 
 export default function IdentifierInput({
@@ -32,6 +33,7 @@ export default function IdentifierInput({
   onError,
   isSodiumReady,
   preVerifiedIdentifier,
+  modeSelector,
 }: IdentifierInputProps) {
   const [loading, setLoading] = useState(false);
   const [showPasscode, setShowPasscode] = useState(false);
@@ -110,6 +112,8 @@ export default function IdentifierInput({
       <p className="text-white/60 text-sm text-center mb-4 max-w-md mx-auto">
         Provide your KERI identifier details to create the attestation
       </p>
+
+      {modeSelector}
 
       <div className="space-y-3">
         <div className="space-y-2">

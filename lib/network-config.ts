@@ -56,7 +56,7 @@ export function saveNetworkConfig(config: Omit<NetworkConfig, 'blockfrostApiKey'
   if (typeof window === 'undefined') return;
   
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...config, envNetwork: envNetworkDefaults(readNetworkEnv()).network }));
   } catch (error) {
     console.error('Failed to save network config:', error);
   }
@@ -116,25 +116,67 @@ export async function validateBlockfrostApiKey(apiKey: string, blockfrostUrl: st
   }
 }
 
+export interface NetworkEnv {
+  network?: string;
+  blockfrostUrl?: string;
+  explorerUrl?: string;
+  blockfrostProjectId?: string;
+}
+
+/** The NEXT_PUBLIC_* values (inlined at build time; restart `next dev` after changing .env) */
+export function readNetworkEnv(): NetworkEnv {
+  return {
+    network: process.env.NEXT_PUBLIC_CARDANO_NETWORK,
+    blockfrostUrl: process.env.NEXT_PUBLIC_CARDANO_BLOCKFROST_API_URL,
+    explorerUrl: process.env.NEXT_PUBLIC_CARDANO_EXPLORER_PREFIX,
+    blockfrostProjectId: process.env.NEXT_PUBLIC_BLOCKFROST_PROJECT_ID,
+  };
+}
+
+function isNetwork(value: unknown): value is CardanoNetwork {
+  return value === 'mainnet' || value === 'preprod' || value === 'preview';
+}
+
+/** Defaults from .env: its network, and its Blockfrost/explorer URLs (else the public ones of that network) */
+export function envNetworkDefaults(env: NetworkEnv): Omit<NetworkConfig, 'blockfrostApiKey'> {
+  const network: CardanoNetwork = isNetwork(env.network) ? env.network : 'mainnet';
+  return {
+    network,
+    blockfrostUrl: env.blockfrostUrl || DEFAULT_NETWORKS[network].blockfrostUrl,
+    explorerUrl: env.explorerUrl || DEFAULT_NETWORKS[network].explorerUrl,
+  };
+}
+
+/**
+ * Settings saved in the browser win over .env, but only while .env still says what it said when they were saved:
+ * editing .env must take effect even after the settings panel was used.
+ */
+export function resolveNetworkConfig(
+  stored: (Omit<NetworkConfig, 'blockfrostApiKey'> & { envNetwork?: string }) | null,
+  env: NetworkEnv
+): Omit<NetworkConfig, 'blockfrostApiKey'> & { fromSettings: boolean } {
+  const defaults = envNetworkDefaults(env);
+  if (stored && isNetwork(stored.network) && stored.envNetwork === defaults.network) {
+    return { network: stored.network, blockfrostUrl: stored.blockfrostUrl, explorerUrl: stored.explorerUrl, fromSettings: true };
+  }
+  return { ...defaults, fromSettings: false };
+}
+
+/**
+ * Blockfrost project IDs work on one network only, so the key saved in Settings applies only together with the
+ * settings it was saved with; when .env decides the network, its project ID comes first.
+ */
+export function resolveBlockfrostKey(fromSettings: boolean, cookieKey: string, envKey?: string): string {
+  return fromSettings ? cookieKey || envKey || '' : envKey || cookieKey || '';
+}
+
 /**
  * Get current network configuration with defaults
  */
 export function getCurrentNetworkConfig(): NetworkConfig {
-  const stored = getStoredNetworkConfig();
-  const apiKey = getBlockfrostApiKey();
-  
-  if (stored) {
-    return {
-      ...stored,
-      blockfrostApiKey: apiKey,
-    };
-  }
-  
-  // Return default mainnet config
-  return {
-    ...DEFAULT_NETWORKS.mainnet,
-    blockfrostApiKey: apiKey,
-  };
+  const env = readNetworkEnv();
+  const { fromSettings, ...config } = resolveNetworkConfig(getStoredNetworkConfig(), env);
+  return { ...config, blockfrostApiKey: resolveBlockfrostKey(fromSettings, getBlockfrostApiKey(), env.blockfrostProjectId) };
 }
 
 /**

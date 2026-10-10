@@ -27,6 +27,28 @@ The application guides the user through the following specific steps:
     *   A copy of the original metadata labels to ensure independent verification.
 7.  **Sign & Submit**: The user signs the transaction with their local wallet, publishing the proof to the blockchain.
 
+## Signers and Attestation Types
+
+**Signer** (identifier step):
+*   **Signify agent**: your identifier on a KERIA agent, unlocked with its passcode (original flow).
+*   **Veridian wallet**: the app boots its own browser KERI agent on the KERIA of the Signify URL field (boot URL from
+    `NEXT_PUBLIC_SIGNIFY_BOOT_URL`, passcode kept in `localStorage`). Scan the app OOBI in Veridian, paste the
+    wallet OOBI back, and approve each anchoring request on the phone (`/remotesign/ixn/req`).
+
+**Attestation type** (transaction step):
+*   **Attest metadata** (`ATTEST`). With Signify the digest of the metadata is anchored in the KEL (`v: {v:"1.0"}`).
+    Veridian can only anchor the SAID of a JSON object, so it anchors the CIP-170 v1.1 **metadata seal**
+    `SAID({ d, t: "cardano-metadata-attest", l: <label>, digest })` instead; the record keeps `d` = digest and carries
+    `v: {v:"1.1"}`, and verifiers recompute the seal. (The remote-sign request does not yet carry the metadatum bytes the
+    spec asks for; see the plan in `docs/plans/2026-10-08-veridian-attest-metadata-seal.md`.)
+*   **Claim transactions** (`CLAIM_TX`, CIP-170 v1.1). The app resolves the required keys of each claimed transaction,
+    builds a claim with those linking keys as `required_signers` and a ~24 h TTL, collects signatures, anchors the
+    transaction seal `SAID({ d, t: "cardano-tx-attest", n, txHash })` and submits. If a linking key is held by someone
+    else, send them the cosign link (`/cosign#…`): they sign with their CIP-30 wallet and send back a return link.
+    The pending claim is kept in `localStorage` until it is submitted or discarded.
+
+Run the unit tests with `npm test`.
+
 ## CIP-0170 Standard
 
 This application implements [CIP-0170](https://github.com/Kammerlo/CIPs/tree/feat/keri-cip/CIP-0170), a proposed standard for KERI-backed metadata attestations.

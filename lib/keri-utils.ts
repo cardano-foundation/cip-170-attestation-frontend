@@ -3,6 +3,7 @@
 import { blake2b } from 'blakejs';
 import { encode as cborEncode, decode } from 'cbor-x';
 import { Diger } from 'signify-ts';
+import { core } from '@meshsdk/core';
 
 export function hashMetadata(data: any): string {
   // Find the first available label in the CBOR metadata
@@ -76,7 +77,9 @@ export function buildCIP170Metadata(
   identifier: string,
   digest: string,
   sequenceNumber: number,
-  originalMetadata: any
+  originalMetadata: any,
+  // "1.1" when the KEL anchor is a metadata seal (CIP-170 v1.1); Signify keeps "1.0"
+  version: '1.0' | '1.1' = '1.0'
 ): any {
   // Start with the CIP-170 attestation at label 170
   const metadata: any = {
@@ -86,7 +89,7 @@ export function buildCIP170Metadata(
       "d": digest,
       "s": decimalToHex(sequenceNumber),
       "v": {
-        "v": "1.0"
+        "v": version
       }
     }
   };
@@ -106,4 +109,16 @@ export function buildCIP170Metadata(
   }
 
   return metadata;
+}
+
+/**
+ * Digest (same algorithm as hashMetadata) of a label's metadatum bytes exactly as they sit in a built transaction.
+ * Used to check that the bytes going on chain are the bytes that were anchored. Returns null if the label is absent.
+ */
+export function metadatumDigestInTx(txHex: string, label: string): string | null {
+  const { Serialization } = core;
+  const tx = Serialization.Transaction.fromCbor(txHex as any);
+  const datum = tx.auxiliaryData()?.metadata()?.metadata()?.get(BigInt(label));
+  if (!datum) return null;
+  return new Diger({}, Uint8Array.from(Buffer.from(datum.toCbor(), 'hex'))).qb64;
 }
